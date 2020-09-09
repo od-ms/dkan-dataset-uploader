@@ -1,7 +1,7 @@
 import random
 from tkinter import Tk, Label, Button, Entry, StringVar, Text, DISABLED, INSERT, NORMAL, END, N, S, W, E
 from tkinter import ttk
-
+from . import excelreader
 
 class MainGui:
     def __init__(self, window):
@@ -110,12 +110,8 @@ class MainGui:
 
     def action_upload(self):
         # self.entry.delete(0, END)
-        self.secret_number = random.randint(1, 100)
-        self.guess = 0
-        self.num_guesses = 0
 
-        self.message = "Guess a number from 1 to 100"
-        # self.label_text.set(self.message)
+        excelreader.read()
 
         self.download_button.configure(state=NORMAL)
         self.upload_button.configure(state=DISABLED)

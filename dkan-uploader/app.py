@@ -5,7 +5,7 @@ import argparse
 import textwrap
 import logging
 
-from . import excelreader
+from . import excelwriter
 from . import main_gui
 
 logging.basicConfig(level=logging.DEBUG, format='<%(asctime)s %(levelname)s> %(message)s')
@@ -41,6 +41,6 @@ class DkanUploader:
         logging.info("Command line arguments: %s", args)
 
         if args.download:
-            excelreader.read()
+            excelwriter.write()
         else:
             main_gui.show()

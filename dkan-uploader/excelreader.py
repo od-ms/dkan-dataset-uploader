@@ -1,62 +1,19 @@
 #! /usr/bin/python
 
 from pprint import pprint
-import json
-import xlsxwriter
+import xlrd
 
-
-
-class ExcelFile:
-    filename = ''
-    workbook = ''
-    worksheet = ''
-    bold = None
-    current_row = 0
-
-    def __init__(self, filename):
-        self.filename = filename
-        self.workbook = xlsxwriter.Workbook(filename)
-        self.worksheet = self.workbook.add_worksheet()
-        self.bold = self.workbook.add_format({'bold': True})
-        self.worksheet.set_column('A:A', 20)
-        self.worksheet.write('A1', 'Dataset', self.bold)
-        self.worksheet.write('B1', 'Resource title', self.bold)
-        self.worksheet.write('C1', 'Resource URL', self.bold)
-
-    def add_file(self, identifier, title, rtitle, rurl):
-        self.current_row+=1
-        self.worksheet.write(self.current_row, 0, identifier)
-        self.worksheet.write(self.current_row, 1, title)
-        self.worksheet.write(self.current_row, 2, rtitle)
-        self.worksheet.write(self.current_row, 3, rurl)
-
-    def finish(self):
-        self.workbook.close()
 
 def read():
-    json_file = 'data.json'
-
-    with open(json_file) as json_data:
-        data = json.load(json_data)
-
-    excel_output = ExcelFile('resources2018.xlsx')
-    for dataset in data['dataset']:
-        if 'distribution' in dataset:
-            for resource in dataset['distribution']:
-
-                resource_url = ""
-                if 'accessURL' in resource:
-                    resource_url = resource['accessURL']
-                if 'downloadURL' in resource: 
-                    resource_url = resource['downloadURL']
-
-                if '2018' in resource_url:
-                    print( dataset['title'] )
-                    print( "  " + resource['title'])
-                    print( "  `-> " + resource_url)
-                    excel_output.add_file(dataset['identifier'], dataset['title'], resource['title'], resource_url)
-
-    excel_output.finish()
+    """ read first row of file """
+    loc = ("resources2018.xlsx") 
+  
+    wb = xlrd.open_workbook(loc) 
+    sheet = wb.sheet_by_index(0) 
+    sheet.cell_value(0, 0) 
+    
+    for i in range(sheet.ncols): 
+        print(sheet.cell_value(0, i)) 
 
 
 # DKAN data.json file format:
