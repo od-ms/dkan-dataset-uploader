@@ -1,12 +1,13 @@
 #! /usr/bin/python
 
-from pprint import pprint
 import json
+import logging
 import xlsxwriter
 
 
-
 class ExcelFile:
+    """ Handle creation of Excel content """
+
     filename = ''
     workbook = ''
     worksheet = ''
@@ -24,7 +25,7 @@ class ExcelFile:
         self.worksheet.write('C1', 'Resource URL', self.bold)
 
     def add_file(self, identifier, title, rtitle, rurl):
-        self.current_row+=1
+        self.current_row += 1
         self.worksheet.write(self.current_row, 0, identifier)
         self.worksheet.write(self.current_row, 1, title)
         self.worksheet.write(self.current_row, 2, rtitle)
@@ -32,6 +33,7 @@ class ExcelFile:
 
     def finish(self):
         self.workbook.close()
+
 
 def write():
     json_file = 'data.json'
@@ -47,13 +49,13 @@ def write():
                 resource_url = ""
                 if 'accessURL' in resource:
                     resource_url = resource['accessURL']
-                if 'downloadURL' in resource: 
+                if 'downloadURL' in resource:
                     resource_url = resource['downloadURL']
 
                 if '2018' in resource_url:
-                    print( dataset['title'] )
-                    print( "  " + resource['title'])
-                    print( "  `-> " + resource_url)
+                    logging.info(dataset['title'])
+                    logging.info("  %s", resource['title'])
+                    logging.info("  `-> %s", resource_url)
                     excel_output.add_file(dataset['identifier'], dataset['title'], resource['title'], resource_url)
 
     excel_output.finish()

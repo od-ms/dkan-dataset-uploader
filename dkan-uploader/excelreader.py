@@ -1,19 +1,29 @@
 #! /usr/bin/python
 
-from pprint import pprint
+import sys
+import logging
 import xlrd
+from . import config
 
 
 def read():
     """ read first row of file """
-    loc = ("resources2018.xlsx") 
-  
-    wb = xlrd.open_workbook(loc) 
-    sheet = wb.sheet_by_index(0) 
-    sheet.cell_value(0, 0) 
-    
-    for i in range(sheet.ncols): 
-        print(sheet.cell_value(0, i)) 
+
+    logging.info("Reading excel file: %s", config.excel_filename)
+    loc = (config.excel_filename)
+
+    try:
+        wb = xlrd.open_workbook(loc)
+        sheet = wb.sheet_by_index(0)
+        sheet.cell_value(0, 0)
+
+        logging.info("Columns in exel file.")
+        for i in range(sheet.ncols):
+            logging.info(" * %s", sheet.cell_value(0, i))
+
+    except:
+        e = sys.exc_info()[0]
+        logging.warning("Error: %s", e)
 
 
 # DKAN data.json file format:
