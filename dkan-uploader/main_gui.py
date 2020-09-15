@@ -1,5 +1,5 @@
 import logging
-from tkinter import scrolledtext, Tk, Label, Button, Entry, StringVar, Text, DISABLED, INSERT, NORMAL, END, N, S, W, E
+from tkinter import scrolledtext, Tk, Label, Button, Entry, StringVar, Text, DISABLED, SUNKEN, RIDGE, INSERT, NORMAL, END, N, S, W, E
 from tkinter import ttk
 from . import config
 from . import excelreader
@@ -26,15 +26,12 @@ class LoggingTextHandler(logging.Handler):
     def emit(self, record):
         msg = self.format(record)
 
-        def append():
-            self.widget.configure(state='normal')
-            self.widget.insert(END, msg + '\n', record.levelname)
-            self.widget.configure(state='disabled')
-            # Autoscroll to the bottom
-            self.widget.yview(END)
-
-        # This is necessary because we can't modify the Text from other threads
-        self.widget.after(0, append)
+        self.widget.configure(state='normal')
+        self.widget.insert(END, msg + '\n', record.levelname)
+        self.widget.configure(state='disabled')
+        # Autoscroll to the bottom
+        self.widget.yview(END)
+        self.widget.update()
 
 
 class MainGui:
@@ -44,7 +41,8 @@ class MainGui:
         # Textarea for Log File display
         master_right = ttk.Frame(window, padding=(3, 3, 12, 12))
         master_right.grid(column=1, row=0, sticky=(N, S, E, W))
-        self.info_box = scrolledtext.ScrolledText(master_right, state='disabled')
+
+        self.info_box = scrolledtext.ScrolledText(master_right, state='disabled', wrap='none', relief=RIDGE)
         self.info_box.configure(font='TkFixedFont')
         self.info_box.grid(row=0, column=0, sticky=(N, S, E, W))
 

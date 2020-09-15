@@ -1,0 +1,8 @@
+[dkan]
+dkan_url = https://opendata.port.al
+package_path = /api/3/action/package_show?id=
+username = user
+password = 123456
+
+[excel]
+filename = dkan_resources.xlsx
