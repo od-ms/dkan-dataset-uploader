@@ -1,5 +1,5 @@
 import logging
-from tkinter import scrolledtext, Tk, Label, Button, Entry, StringVar, Text, DISABLED, SUNKEN, RIDGE, INSERT, NORMAL, END, N, S, W, E
+from tkinter import scrolledtext, Tk, Label, Checkbutton, Button, Entry, StringVar, Text, IntVar, DISABLED, SUNKEN, RIDGE, INSERT, NORMAL, END, N, S, W, E
 from tkinter import ttk
 from . import config
 from . import excelreader
@@ -107,7 +107,7 @@ class MainGui:
         self.cred_label = Label(master, text="User/Password:")
         self.cred_label.grid(row=currentRow, column=0, sticky=E)
 
-        # Last row (Buttons)
+        # Action Buttons
         currentRow += 1
 
         aktion_label = Label(master, text="Aktion:")
@@ -117,11 +117,27 @@ class MainGui:
         self.download_button = Button(master, text="DKAN -> Excel", command=self.action_download)
         self.download_button.grid(row=currentRow, column=2, sticky=W+E, pady=(y_spacing, 0))
 
+        # Checkboxes
+        currentRow +=1
+        Label(master, text="Optionen:").grid(row=currentRow, column=0, sticky=E, pady=(y_spacing, 0))
+        self.skip_resources = IntVar()
+        Checkbutton(master, text = "Nur Datensätze, keine Ressourcen",variable = self.skip_resources).grid(row=currentRow, column=1, columnspan=2,  sticky=W)
+
+        currentRow +=1
+        self.check_resources = IntVar()
+        Checkbutton(master, text = "Ressourcen beim Download überprüfen",variable = self.check_resources).grid(row=currentRow, column=1, columnspan=2,  sticky=W)
+        
+        self.check_resources.set(1)
+        logging.debug("value cr %s", self.check_resources.get() )
+        logging.debug("value sr %s", self.skip_resources.get() )
+
     def update_config(self):
         config.dkan_url = self.url_input.get()
         config.dkan_username = self.user_input.get()
         config.dkan_password = self.password_input.get()
         config.excel_filename = self.filename_input.get()
+        config.check_resources = self.check_resources.get()
+        config.skip_resources = self.skip_resources.get()
 
     def validate(self, new_text):
         logging.debug("There could be a validation here")
