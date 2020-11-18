@@ -1,5 +1,6 @@
 import logging
-from tkinter import scrolledtext, Tk, Label, Checkbutton, Button, Entry, StringVar, Text, IntVar, DISABLED, SUNKEN, RIDGE, INSERT, NORMAL, END, N, S, W, E
+from tkinter import scrolledtext, Tk, Frame, Label, Checkbutton, Button, Entry, StringVar, Text, IntVar, PhotoImage ,\
+    DISABLED, SUNKEN, RIDGE, INSERT, NORMAL, END, N, S, W, E
 from tkinter import ttk
 from . import config
 from . import excelreader
@@ -34,36 +35,35 @@ class LoggingTextHandler(logging.Handler):
         self.widget.update()
 
 
-class MainGui:
+class MainGui(Frame):
     """Display the Main GUI Window"""
 
-    def init_logging_textarea(self, window):
-        # Textarea for Log File display
-        master_right = ttk.Frame(window, padding=(3, 3, 12, 12))
-        master_right.grid(column=1, row=0, sticky=(N, S, E, W))
-
-        self.info_box = scrolledtext.ScrolledText(master_right, state='disabled', wrap='none', relief=RIDGE)
-        self.info_box.configure(font='TkFixedFont')
-        self.info_box.grid(row=0, column=0, sticky=(N, S, E, W))
-
-        # Create textLogger
-        text_handler = LoggingTextHandler(self.info_box)
-
-        # Add the handler to logger
-        logger = logging.getLogger()
-        logger.addHandler(text_handler)
-
     def __init__(self, window):
+        # enable automatic widget resizing on window resized by user
+        # TODO: The right side should get smaller, but the opposite is happening
+        Frame.__init__( self, window )
+        top = window.winfo_toplevel()
+        top.rowconfigure( 0, weight=1 )
+        top.columnconfigure( 0, weight=1 )
+        top.columnconfigure( 1, weight=3 )
+
+        # Setting icon of master window
+        p1 = PhotoImage(file = 'app-icon.gif')
+        window.iconphoto(False, p1)
+
+        # Create two top level frames
         master = ttk.Frame(window, padding=(20, 30, 12, 12), borderwidth=10)
         master.grid(column=0, row=0, sticky=(N, S, E, W))
+        master.columnconfigure( 0, weight=1 )
+        master.columnconfigure( 1, weight=10 )
+        master.columnconfigure( 2, weight=10 )
 
         self.master = master
-        window.title("DKAN Uploader")
-
         self.init_logging_textarea(window)
 
-        logging.info("DKAN Uploader v0.1")
-        logging.info("==================")
+        window.title("DKAN Uploader")
+        logging.info("DKAN Uploader v0.11 (2020-11-18)")
+        logging.info("================================")
         logging.debug("Filename %s", config.excel_filename)
 
         # -- Main layout --
@@ -72,7 +72,13 @@ class MainGui:
 
         # Headline
         headline_label = Label(master, text="DKAN Uploader", font=("Arial Bold", 30))
-        headline_label.grid(row=0, columnspan=3)
+        headline_label.grid(row=0, column=0, columnspan=3)
+
+        # Show App Icon in Header
+        p2 = p1.zoom(2)
+        labelWuerfel = Label(master, image=p2)
+        labelWuerfel.image=p2 # keep reference to image so garbe collection doesnt remove it..
+        labelWuerfel.grid(row=0, column=0, sticky=W)
 
         # Filename input
         currentRow += 1
@@ -126,10 +132,36 @@ class MainGui:
         currentRow +=1
         self.check_resources = IntVar()
         Checkbutton(master, text = "Ressourcen beim Download überprüfen",variable = self.check_resources).grid(row=currentRow, column=1, columnspan=2,  sticky=W)
-        
+
+        # Give all weight to an empty row at the bottom, so it will take all the space on window resize by user
+        currentRow +=1
+        self.empty_space = Label(master, text="")
+        self.empty_space.grid(row=currentRow, column=0, sticky=E, pady=(y_spacing, 0))
+        master.rowconfigure( currentRow, weight=1 )
+
+
         self.check_resources.set(1)
         logging.debug("value cr %s", self.check_resources.get() )
         logging.debug("value sr %s", self.skip_resources.get() )
+
+    def init_logging_textarea(self, window):
+
+        # Textarea for Log File display
+        self.master_right = ttk.Frame(window, padding=(3, 3, 12, 12))
+        self.master_right.grid(column=1, row=0, sticky=(N, S, E, W))
+        self.master_right.rowconfigure( 0, weight=1 )
+        self.master_right.columnconfigure( 0, weight=1 )
+
+        self.info_box = scrolledtext.ScrolledText(self.master_right, state='disabled', wrap='none', relief=RIDGE)
+        self.info_box.configure(font='TkFixedFont')
+        self.info_box.grid(row=0, column=0, sticky=(N, S, E, W))
+
+        # Create textLogger
+        text_handler = LoggingTextHandler(self.info_box)
+
+        # Add the handler to logger
+        logger = logging.getLogger()
+        logger.addHandler(text_handler)
 
     def update_config(self):
         config.dkan_url = self.url_input.get()
@@ -160,5 +192,6 @@ class MainGui:
 
 def show():
     root = Tk()
+
     MainGui(root)
     root.mainloop()
