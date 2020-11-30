@@ -7,8 +7,10 @@ import logging
 import xlsxwriter
 import xlrd
 import httplib2
+import os.path
 from pprint import pprint
 from jsonschema import validate
+from urllib.request import urlopen
 from . import config
 
 class ExcelResultFile:
@@ -79,7 +81,7 @@ class ExcelResultFile:
         self.worksheet.write_row('A1', columns, self.bold)
 
 
-    def add_plain_row(self, column_contents): 
+    def add_plain_row(self, column_contents):
         self.current_row += 1
         self.worksheet.write_row(self.current_row, 0, column_contents)
 
@@ -87,16 +89,16 @@ class ExcelResultFile:
     def get_column_config(self):
         """ This contains the default configuration of a row"""
         columns = {
-            'Dataset-ID': "id", 
-            'Dataset-Name': "name", 
-            'Dataset-Title': "title", 
-            'Author': "author", 
-            'Email': "author_email", 
-            'License': "license_title", 
-            #'Description': "notes", 
-            'URL': "url", 
-            'State': "state", 
-            'Created': "metadata_created", 
+            'Dataset-ID': "id",
+            'Dataset-Name': "name",
+            'Dataset-Title': "title",
+            'Author': "author",
+            'Email': "author_email",
+            'License': "license_title",
+            #'Description': "notes",
+            'URL': "url",
+            'State': "state",
+            'Created': "metadata_created",
             'Modified': "metadata_modified"
         }
         for col in self.extra_columns:
@@ -107,7 +109,7 @@ class ExcelResultFile:
     def add_dataset(self, dataset):
         columns_config = self.get_column_config().values()
         columns = []
-        for column_key in columns_config: 
+        for column_key in columns_config:
             value = None
             if (column_key[:6] == "EXTRA|") and ("extras" in dataset):
                 extra_key = column_key[6:]
@@ -115,7 +117,7 @@ class ExcelResultFile:
                 extra_obj = [x for x in dataset["extras"] if x["key"] == extra_key]
                 #logging.debug("found extra obj %s", extra_obj)
                 value = extra_obj[0]["value"] if len(extra_obj) else None
-            else: 
+            else:
                 value = dataset[column_key] if column_key in dataset else None
             columns.append(value)
 
@@ -126,7 +128,7 @@ class ExcelResultFile:
             self.add_plain_row(columns)
 
         # write resource rows
-        else: 
+        else:
             for resource_number, resource in enumerate(dataset['resources']):
                 resource_row = []
                 if resource_number == 0:
@@ -144,7 +146,7 @@ class ExcelResultFile:
                     resource['response_code']
                 ])
                 self.add_plain_row(resource_row)
-                
+
 
     def finish(self):
         self.workbook.close()
@@ -154,7 +156,7 @@ class ResourceStatus:
     """Check status of a resource"""
 
     def check(self, url):
-        try: 
+        try:
             htl = httplib2.Http(".cache", disable_ssl_certificate_validation=True)
             resp = htl.request(url, 'HEAD')
         except:
@@ -164,7 +166,7 @@ class ResourceStatus:
 
         return (int(resp[0]['status']) < 400), resp[0]['status']
 
-# JSON Schema of the dataset entries
+# JSON Schema of the dataset entries in endpoint "current_package_list_with_resources"
 datasetSchema = {
     "type": "object",
     "properties": {
@@ -187,14 +189,14 @@ datasetSchema = {
         "creator_user_id": {"type": "string"},
         "type": {"type": "string"},                 # always "Dataset"
 
-        # TODO: Read and parse the following fields. 
+        # TODO: Read and parse the following fields.
         # TODO: How to access dynamic combined list/dict entries see ../test.py
         # THE FOLLOWING FIELDS ARE MISSING IN "current_package_list_with_resources"
         # How to get them? We have to query:
         # 1. https://opendata.stadt-muenster.de/api/dataset/node.json?parameters[uuid]=29a3d573-98e1-412c-af0c-c356a07eff7b
         #    => to get the node id
         # 2. https://opendata.stadt-muenster.de/api/dataset/node/41334.json
-        #    => to get the missing details.. 
+        #    => to get the missing details..
         "contact_name": {"type": "string"}, # field_contact_name['und'][0]['value']
         "data_dictionary": {"type": "string"},
         "frequency": {"type": "string"},
@@ -239,7 +241,7 @@ datasetSchema = {
                     "name": {"type": "string"}
                 },
                 "required": [ "id", "vocabulary_id", "name" ]
-            }                
+            }
         },
         "groups": {
             "type": "array",
@@ -252,7 +254,7 @@ datasetSchema = {
                     "name": {"type": "string"}
                 },
                 "required": [ "name", "title", "id" ]
-            }               
+            }
         },
         "extras": {
             "type": "array",
@@ -263,7 +265,7 @@ datasetSchema = {
                     "value": {"type": "string"},
                 },
                 "required": [ "key", "value" ]
-            }             
+            }
         }
     },
     "required": [ "id", "name", "metadata_created", "type", ]
@@ -277,16 +279,40 @@ def validateJson(jsonData):
         return False
     return True
 
-def write():
-    json_file = 'current_package_list_with_resources'
 
-    with open(json_file) as json_data:
-        data = json.load(json_data)
+def read_package_list_with_resources():
+    temp_file = '.current_package_list_with_resources'
+
+    try:
+        if os.path.isfile(temp_file):
+            logging.info('Using cached file "' + temp_file + '"')
+        else:
+            remote_url = config.dkan_url + config.api_resource_list
+            logging.info('Reading remote url: "' + remote_url +'"')
+            f = urlopen(remote_url)
+            myfile = f.read()
+            with open(temp_file, 'w') as fw:
+                fw.write(myfile.decode(config.api_encoding))
+
+        with open(temp_file, 'r') as json_data:
+            data = json.load(json_data)
+
+    except json.decoder.JSONDecodeError as err:
+        logging.debug("Fehlermeldung (beim Parsen der DKAN-API JSON-Daten): %s", err)
+        logging.error("Fehler beim Lesen der Eingabedaten. Cache Datei wird gelöscht.")
+        logging.error("Bitte versuchen Sie es erneut. Wenn das nicht hilft, prüfen Sie die Fehlermeldung (s.o.)")
+        os.remove(temp_file)
+
+    return data
+
+
+def write():
+    data = read_package_list_with_resources()
 
     # iterate all datasets once to find all defined extras
     extras = {}
     for dataset in data['result'][0]:
-        if "extras" in dataset: 
+        if "extras" in dataset:
             for extra in dataset["extras"]:
                 keyName = extra["key"]
                 if keyName in extras:
@@ -303,7 +329,7 @@ def write():
 
     resource_status = ResourceStatus()
 
-    # write all datasets and resources to excel file    
+    # write all datasets and resources to excel file
     number = 0
     for dataset in data['result'][0]:
 

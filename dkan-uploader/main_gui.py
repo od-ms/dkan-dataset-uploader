@@ -5,7 +5,7 @@ from tkinter import ttk
 from . import config
 from . import excelreader
 from . import excelwriter
-
+from . import confighandler
 
 class LoggingTextHandler(logging.Handler):
     """This class allows you to log to a Tkinter Text or ScrolledText widget"""
@@ -170,6 +170,7 @@ class MainGui(Frame):
         config.excel_filename = self.filename_input.get()
         config.check_resources = self.check_resources.get()
         config.skip_resources = self.skip_resources.get()
+        confighandler.write_config_file()
 
     def validate(self, new_text):
         logging.debug("There could be a validation here")
@@ -178,9 +179,9 @@ class MainGui(Frame):
     def action_download(self):
         self.update_config()
         logging.debug("Starting Excelwriter module")
-        self.download_button.configure(state=DISABLED)
+        # self.download_button.configure(state=DISABLED)
         excelwriter.write()
-        self.download_button.configure(state=NORMAL)
+        # self.download_button.configure(state=NORMAL)
 
     def action_upload(self):
         self.update_config()
