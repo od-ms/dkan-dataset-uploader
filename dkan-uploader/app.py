@@ -25,7 +25,7 @@ class DkanUploader:
         args = DkanUploader.get_commandline_args()
 
         if args.download:
-            excelwriter.write()
+            excelwriter.write(args.filename)
         else:
             print("")
             print("Starting in GUI mode. To print available command line options, start with --help.")

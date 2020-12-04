@@ -11,6 +11,7 @@ import os.path
 from pprint import pprint
 from jsonschema import validate
 from urllib.request import urlopen
+from timeit import default_timer as timer
 from . import config
 
 class ExcelResultFile:
@@ -25,11 +26,13 @@ class ExcelResultFile:
     worksheet = ''
     bold = None
     current_row = 0
+    current_dataset_nr = 0
     existing_dataset_ids = {}
 
     def __init__(self, filename, extra_columns):
         self.filename = filename
         self.extra_columns = extra_columns
+        self.current_row = 0
 
     def initialize_new_excel_file_with_existing_content(self):
         """ Read the extisting excel and save ALL content to "old_excel_content",
@@ -77,26 +80,66 @@ class ExcelResultFile:
         self.worksheet.set_column('A:A', 20)
 
         # write header row
-        columns = self.get_column_config().keys()
+        columns = list(self.get_column_config_dataset().keys())
+        if not config.skip_resources:
+            columns.extend(self.get_column_config_resource().keys())
+
         self.worksheet.write_row('A1', columns, self.bold)
 
 
     def add_plain_row(self, column_contents):
+        # logging.debug("Writing row %s", column_contents)
         self.current_row += 1
         self.worksheet.write_row(self.current_row, 0, column_contents)
 
 
-    def get_column_config(self):
+    def get_column_config_dataset(self):
         """ This contains the default configuration of a row"""
         columns = {
             'Dataset-ID': "id",
             'Dataset-Name': "name",
-            'Dataset-Title': "title",
+            'Titel': "title",
             'Author': "author",
-            'Email': "author_email",
+            'Contact Name': 'contact_name',
+            'Contact Email': "author_email",
+            'Geographic Location': 'spatial_geographical_cover',
             'License': "license_title",
-            #'Description': "notes",
+            # Custom License
+            'Homepage URL': 'homepage',
+            'Description': "notes",
+            # Textformat ?
             'URL': "url",
+            # 'Tags'
+            # 'Groups'
+            # Frequency
+            # Temporal Coverage
+                # Datum
+                # Zeit
+                    # Enddatum anzeigen
+                    # Bis Datum
+                    # Bis Zeit
+            # Granularity
+            # Data Dictionary Type
+            # Data Dictionary
+            # Public Access Level
+            # Data Standard
+            # Language
+            # Related Content
+
+            # Additional Info --> ok
+            # Resources --> ok
+            # Schlagworte
+            # Playground => ziemlich viele Felder!
+            # Harvest Source
+            # Versionsinformationen ?
+            # Einstellungen für Kommentare (Öffnen / Geschlossen)
+            # Informationen zum Autor
+                # Erstellt von
+                # geschrieben am
+            # Veröffentlichungseinstellungen
+                # Veröffentlicht
+                # Auf der Startseite
+                # Oben in Listen
             'State': "state",
             'Created': "metadata_created",
             'Modified': "metadata_modified"
@@ -106,8 +149,23 @@ class ExcelResultFile:
 
         return columns
 
+    def get_column_config_resource(self):
+        columns = {
+            'Lfd-Nr': 'lfd-nr',
+            'Resource-ID': 'id',
+            'Resource-Name': 'name',
+            'Format': 'format',
+            'Externe Url': 'url',
+            'Description': 'description',
+            'Prüfung OK?': 'response_ok',
+            'HTTP-Responsecode':'response_code'
+        }
+
+        return columns
+
     def add_dataset(self, dataset):
-        columns_config = self.get_column_config().values()
+        self.current_dataset_nr += 1
+        columns_config = self.get_column_config_dataset().values()
         columns = []
         for column_key in columns_config:
             value = None
@@ -136,15 +194,20 @@ class ExcelResultFile:
                 else:
                     resource_row = [''] * len(columns)
 
-                resource_row.extend([
-                    '#' + str(resource_number+1),
-                    resource['id'],
-                    resource['name'],
-                    resource['format'],
-                    resource['url'],
-                    resource['response_ok'],
-                    resource['response_code']
-                ])
+                # get all resource fields according to resource column config
+                rcolumns_config = self.get_column_config_resource().values()
+                for rc_key in rcolumns_config:
+                    rc_value = ""
+                    if rc_key == 'lfd-nr':
+                        rc_value = str(self.current_dataset_nr) + '-' + str(resource_number+1)
+                    else:
+                        try:
+                            rc_value = resource[rc_key]
+                        except KeyError:
+                            logging.error('Key "%s" not found: %s', rc_key, resource)
+
+                    resource_row.extend([rc_value])
+
                 self.add_plain_row(resource_row)
 
 
@@ -175,8 +238,8 @@ datasetSchema = {
         "title": {"type": "string"},
         "author": {"type": "string"},
         "author_email": {"type": "string"}, # = "contact email"
-        "maintainer": {"type": "string"},           # ??
-        "maintainer_email": {"type": "string"},     # ??
+        "maintainer": {"type": "string"},           # useless
+        "maintainer_email": {"type": "string"},     # useless
         "license_title": {"type": "string"},
         "notes": {"type": "string"},        # = "description"
         "url": {"type": "string"},
@@ -189,8 +252,6 @@ datasetSchema = {
         "creator_user_id": {"type": "string"},
         "type": {"type": "string"},                 # always "Dataset"
 
-        # TODO: Read and parse the following fields.
-        # TODO: How to access dynamic combined list/dict entries see ../test.py
         # THE FOLLOWING FIELDS ARE MISSING IN "current_package_list_with_resources"
         # How to get them? We have to query:
         # 1. https://opendata.stadt-muenster.de/api/dataset/node.json?parameters[uuid]=29a3d573-98e1-412c-af0c-c356a07eff7b
@@ -203,7 +264,7 @@ datasetSchema = {
         "granularity": {"type": "string"},
         "spatial": {"type": "object"}, # ... TODO add object definition?
         "spatial_geographical_cover": {"type": "string"}, # field_spatial_geographical_cover['und'][0]['value']
-        "homepage": {"type": "string"}, # field_landing_page['und'][0]['url']
+        "homepage": {"type": "string"}, #  field_landing_page['und'][0]['url']
 
         # OK back to current_package_list_with_resources
         "resources": {
@@ -280,17 +341,22 @@ def validateJson(jsonData):
     return True
 
 
-def read_package_list_with_resources():
-    temp_file = '.current_package_list_with_resources'
+def read_remote_json_with_cache(remote_url, temp_file):
+    """download a remote url to a temp directory first, then use it"""
+
+    # prefix with tempdir and convert slashes to backslashes on windows
+    temp_file = os.path.normpath('temp/' + temp_file)
+    remote_url = config.dkan_url + remote_url
 
     try:
         if os.path.isfile(temp_file):
             logging.info('Using cached file "' + temp_file + '"')
         else:
-            remote_url = config.dkan_url + config.api_resource_list
-            logging.info('Reading remote url: "' + remote_url +'"')
+            ti = timer()
             f = urlopen(remote_url)
             myfile = f.read()
+            logging.info('Reading remote url ({:.4f}): "{}"'.format(timer() - ti, remote_url))
+
             with open(temp_file, 'w') as fw:
                 fw.write(myfile.decode(config.api_encoding))
 
@@ -299,15 +365,24 @@ def read_package_list_with_resources():
 
     except json.decoder.JSONDecodeError as err:
         logging.debug("Fehlermeldung (beim Parsen der DKAN-API JSON-Daten): %s", err)
-        logging.error("Fehler beim Lesen der Eingabedaten. Cache Datei wird gelöscht.")
-        logging.error("Bitte versuchen Sie es erneut. Wenn das nicht hilft, prüfen Sie die Fehlermeldung (s.o.)")
+        logging.error("Fehler 5001 beim Lesen der Eingabedaten. Cache Datei wird gelöscht.")
+        logging.error("Bitte versuchen Sie es erneut. Wenn das nicht hilft, prüfen Sie die Fehlermeldung (s.o.) und konsultieren Sie die Dokumentation.")
         os.remove(temp_file)
 
     return data
 
+def read_package_list_with_resources():
+    """Read all datasets and resources from DKAN portal
+        Or from local cache file if it exists
+    """
+    return read_remote_json_with_cache(config.api_resource_list, 'current_package_list_with_resources.json')
 
-def write():
+
+def write(command_line_excel_filename):
     data = read_package_list_with_resources()
+
+    logging.debug("skip_resouces %s", config.skip_resources)
+    logging.debug("check_resources %s", config.check_resources)
 
     # iterate all datasets once to find all defined extras
     extras = {}
@@ -319,10 +394,10 @@ def write():
                     extras[keyName] = extras[keyName] + 1
                 else:
                     extras[keyName] = 0
-    logging.info("All extras of file: %s", extras)
+    logging.info("All 'additional-info'-fields of DKAN response: %s", extras)
 
     # initialize excel file
-    excel_output = ExcelResultFile(config.excel_filename, extras)
+    excel_output = ExcelResultFile(command_line_excel_filename if command_line_excel_filename else config.excel_filename, extras)
 
     excel_output.initialize_new_excel_file_with_existing_content()
     existing_dataset_ids = excel_output.get_existing_dataset_ids()
@@ -348,21 +423,33 @@ def write():
             continue
 
         number += 1
-        if number == 1000:
+        if number == 3:
             logging.debug("Stopping now")
             break
+
+        # Sadly all the api endpoints with a list of datasets have missing data
+        # That is why we have to make two extra calls per dataset.  .. maybe if there is another way..?
+        if config.download_extended_dataset_infos:
+            node_search = read_remote_json_with_cache(config.api_find_node_id.format(dataset_id), '{}.json'.format(dataset_id))
+            if node_search[0]['nid']:
+                nid = node_search[0]['nid']
+                node_data = read_remote_json_with_cache(config.api_get_node_details.format(nid), '{}-complete.json'.format(dataset_id))
+                dataset['homepage'] = node_data['field_landing_page']['und'][0]['url']
+                dataset['contact_name'] = node_data['field_contact_name']['und'][0]['value']
+                dataset['spatial_geographical_cover'] = node_data['field_spatial_geographical_cover']['und'][0]['value']
+
 
         # http-check dataset resources and add check result into nested resource list
         if (not config.skip_resources) and ('resources' in dataset):
             for index, resource in enumerate(dataset['resources']):
-                logging.debug("Check: %s", resource['url'])
                 if config.check_resources:
+                    logging.debug("Check: %s", resource['url'])
                     (ok, response_code) = resource_status.check(resource['url'])
+                    logging.debug("Response: %s %s", ok, response_code)
                 else:
                     ok = response_code = None
                 dataset['resources'][index]['response_ok'] = ok
                 dataset['resources'][index]['response_code'] = response_code
-                logging.debug("Response: %s %s", ok, response_code)
 
         excel_output.add_dataset(dataset)
 

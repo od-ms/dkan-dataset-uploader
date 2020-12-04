@@ -1,6 +1,6 @@
 """Handle data transfer between config.ini and config.py
 """
-
+import json
 import textwrap
 import logging
 import configparser
@@ -18,14 +18,15 @@ def read_config_file():
         logging.warning('Config file not found (or wrong sections..?)')
         logging.warning('Starting with empty config')
     else:
-        logging.debug('config sections: %s', config_ini.sections())
+        for section in config_ini.sections():
+            logging.debug('config: %s %s', section, dict(config_ini[section]))
 
         config.dkan_url = config_ini['dkan']['dkan_url']
         config.dkan_username = config_ini['dkan']['username']
         config.dkan_password = config_ini['dkan']['password']
         config.excel_filename = config_ini['excel']['filename']
-        config.skip_resources = config_ini['features']['skip_resources']
-        config.check_resources = config_ini['features']['check_resources']
+        config.skip_resources = config_ini.getboolean('features','skip_resources')
+        config.check_resources = config_ini.getboolean('features','check_resources')
 
     if 'api' in config_ini:
         if ('package_details' in config_ini['api']) and config_ini['api']['package_details']:
