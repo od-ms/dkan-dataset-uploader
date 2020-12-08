@@ -6,12 +6,17 @@ dkan_username = ""
 dkan_password = ""
 excel_filename = ""
 
+# features
 skip_resources = False
 check_resources = False
 
-api_package_details = "" ## TODO: DO WE NEED THIS? WE USE api_node_details INSTEAD, woll?
-api_resource_list = ""
+api_package_details = "" # endpoint is used to fetch single packages by id
+api_resource_list = ""  # endpoint is used to fetch list of (all) packages
 api_encoding = "utf-8"
+
+# command line options
+overwrite_rows = False
+dataset_ids = ""
 
 # ------------------------------------------------------------------------
 # Internal settings, only change below here if you know what you are doing

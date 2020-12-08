@@ -93,42 +93,71 @@ class ExcelResultFile:
         self.worksheet.write_row(self.current_row, 0, column_contents)
 
 
+    def get_nested_json_value(self, target_dict, keys):
+        node_value = None
+        try:
+            if len(keys) == 4:
+                node_value = target_dict[keys[0]][keys[1]][keys[2]][keys[3]]
+            else:
+                logging.error("Not implemented for {} keys in: %s".format(len(keys)), keys)
+                raise Exception("Not implemented for {} keys in: %s".format(len(keys)), keys)
+
+            logging.debug("got nested dkan node: %s => {}".format(node_value), keys)
+
+        except (TypeError, KeyError):
+            logging.debug("Probably empty value, did not find key: %s", keys)
+
+        return node_value
+
+
     def get_column_config_dataset(self):
         """ This contains the default configuration of a row"""
+
+
+        # Some FIELDS ARE MISSING IN "current_package_list_with_resources"
+        # How to get them? We have to query:
+        # 1. https://opendata.stadt-muenster.de/api/dataset/node.json?parameters[uuid]=29a3d573-98e1-412c-af0c-c356a07eff7b
+        #    => to get the node id
+        # 2. https://opendata.stadt-muenster.de/api/dataset/node/41334.json
+        #    => to get the missing details..
+
+        #   TODO: So kann man eine Liste der TAGS bekommen, aber ohne IDs..?!?!
+        #           => https://opendata.stadt-muenster.de/autocomplete_deluxe/taxonomy/field_dataset_tags/%20/500?term=&synonyms=2
+
+        #   TODO: Der Testdatensatz ist "bevölkerungsindikatoren-soziales" - da wurden alle Felder mit Daten gefüllt, aber nur teilweise sinnvoll.
+        #                                            ^ den nachher wieder richtig einstellen!
         columns = {
             'Dataset-ID': "id",
             'Dataset-Name': "name",
             'Titel': "title",
             'Author': "author",
-            'Contact Name': 'contact_name',
+            'Contact Name': ['field_contact_name', 'und', 0, 'value'],
             'Contact Email': "author_email",
-            'Geographic Location': 'spatial_geographical_cover',
+            'Geographical Location': ['field_spatial_geographical_cover', 'und', 0, 'value'],
+            'Geographical Coverage Area': ['field_spatial_geographical_cover', 'und', 0, 'wkt'],
             'License': "license_title",
-            # Custom License
-            'Homepage URL': 'homepage',
+            'Custom License': ['field_license', 'und', 0, 'value'],
+            'Homepage URL': ['field_landing_page', 'und', 0, 'url'],
             'Description': "notes",
-            # Textformat ?
+            'Textformat': ["body", "und", 0, "format"],
             'URL': "url",
             # 'Tags'
-            # 'Groups'
-            # Frequency
-            # Temporal Coverage
-                # Datum
-                # Zeit
-                    # Enddatum anzeigen
-                    # Bis Datum
-                    # Bis Zeit
-            # Granularity
-            # Data Dictionary Type
-            # Data Dictionary
-            # Public Access Level
-            # Data Standard
-            # Language
+            'Groups': 'COLLECT|groups.title',
+            'Frequency': ['field_frequency', 'und', 0, 'value'], #example value: "R/P1Y" ?
+            'Temporal Coverage Start': ['field_temporal_coverage', 'und', 0, 'value'],
+            'Temporal Coverage End': ['field_temporal_coverage', 'und', 0, 'value2'],
+            'Granularity': ["field_granularity", "und", 0, "value"],
+            'Data Dictionary': ["field_data_dictionary", 'und', 0, 'value'],
+            'Data Dictionary Type': ["field_data_dictionary_type", 'und', 0, 'value'],
+            'Public Access Level': ["field_public_access_level", "und", 0, "value"],
+            'Data Standard': ['field_conforms_to', "und", 0, "url"],
+            'Language': ["field_language", 'und', 0, 'value'],
             # Related Content
 
             # Additional Info --> ok
             # Resources --> ok
-            # Schlagworte
+
+            'Schlagworte'
             # Playground => ziemlich viele Felder!
             # Harvest Source
             # Versionsinformationen ?
@@ -163,18 +192,28 @@ class ExcelResultFile:
 
         return columns
 
-    def add_dataset(self, dataset):
+    def add_dataset(self, dataset, dkan_node):
         self.current_dataset_nr += 1
         columns_config = self.get_column_config_dataset().values()
         columns = []
         for column_key in columns_config:
             value = None
-            if (column_key[:6] == "EXTRA|") and ("extras" in dataset):
+            if isinstance(column_key, list):
+                value = self.get_nested_json_value(dkan_node, column_key)
+            elif (column_key[:6] == "EXTRA|") and ("extras" in dataset):
                 extra_key = column_key[6:]
                 #logging.debug("searching extra key %s", extra_key)
                 extra_obj = [x for x in dataset["extras"] if x["key"] == extra_key]
                 #logging.debug("found extra obj %s", extra_obj)
                 value = extra_obj[0]["value"] if len(extra_obj) else None
+            elif (column_key[:8] == "COLLECT|"):
+                extra_key = column_key[8:]
+                if 'groups' in dataset:
+                    groups = []
+                    for group in dataset['groups']:
+                        groups.append(group['title'])
+                    value = ", ".join(groups)
+
             else:
                 value = dataset[column_key] if column_key in dataset else None
             columns.append(value)
@@ -251,22 +290,6 @@ datasetSchema = {
         "metadata_modified": {"type": "string"},
         "creator_user_id": {"type": "string"},
         "type": {"type": "string"},                 # always "Dataset"
-
-        # THE FOLLOWING FIELDS ARE MISSING IN "current_package_list_with_resources"
-        # How to get them? We have to query:
-        # 1. https://opendata.stadt-muenster.de/api/dataset/node.json?parameters[uuid]=29a3d573-98e1-412c-af0c-c356a07eff7b
-        #    => to get the node id
-        # 2. https://opendata.stadt-muenster.de/api/dataset/node/41334.json
-        #    => to get the missing details..
-        "contact_name": {"type": "string"}, # field_contact_name['und'][0]['value']
-        "data_dictionary": {"type": "string"},
-        "frequency": {"type": "string"},
-        "granularity": {"type": "string"},
-        "spatial": {"type": "object"}, # ... TODO add object definition?
-        "spatial_geographical_cover": {"type": "string"}, # field_spatial_geographical_cover['und'][0]['value']
-        "homepage": {"type": "string"}, #  field_landing_page['und'][0]['url']
-
-        # OK back to current_package_list_with_resources
         "resources": {
             "type": "array",
             "items": {
@@ -329,12 +352,17 @@ datasetSchema = {
             }
         }
     },
-    "required": [ "id", "name", "metadata_created", "type", ]
+    "required": [ "id", "name", "metadata_created", "type" ]
 }
 
-def validateJson(jsonData):
+# TODO: JSON Schema for DKAN Nodes
+nodeSchema = {
+
+}
+
+def validateJson(jsonData, check_schema):
     try:
-        validate(instance=jsonData, schema=datasetSchema)
+        validate(instance=jsonData, schema=check_schema)
     except jsonschema.exceptions.ValidationError as err:
         pprint(err)
         return False
@@ -408,13 +436,16 @@ def write(command_line_excel_filename):
     number = 0
     for dataset in data['result'][0]:
 
-        isValid = validateJson(dataset)
+        isValid = validateJson(dataset, datasetSchema)
         if not isValid:
             pprint(dataset)
             raise ValueError('Dataset format is not valid. Scroll up, see detailed error in line before pprint(dataset)')
 
         dataset_id = dataset['id']
-        if dataset_id in existing_dataset_ids:
+        if config.dataset_ids and (config.dataset_ids.find(dataset_id) != -1):
+            continue
+
+        if (not config.overwrite_rows) and (dataset_id in existing_dataset_ids):
             logging.debug("Already in Excel. Skipping %s", dataset_id)
             continue
 
@@ -427,6 +458,7 @@ def write(command_line_excel_filename):
             logging.debug("Stopping now")
             break
 
+        node_data = None
         # Sadly all the api endpoints with a list of datasets have missing data
         # That is why we have to make two extra calls per dataset.  .. maybe if there is another way..?
         if config.download_extended_dataset_infos:
@@ -434,9 +466,10 @@ def write(command_line_excel_filename):
             if node_search[0]['nid']:
                 nid = node_search[0]['nid']
                 node_data = read_remote_json_with_cache(config.api_get_node_details.format(nid), '{}-complete.json'.format(dataset_id))
-                dataset['homepage'] = node_data['field_landing_page']['und'][0]['url']
-                dataset['contact_name'] = node_data['field_contact_name']['und'][0]['value']
-                dataset['spatial_geographical_cover'] = node_data['field_spatial_geographical_cover']['und'][0]['value']
+                isValid = validateJson(node_data, nodeSchema)
+                if not isValid:
+                    pprint(dataset)
+                    raise ValueError('Dataset format is not valid. Scroll up, see detailed error in line before pprint(dataset)')
 
 
         # http-check dataset resources and add check result into nested resource list
@@ -451,7 +484,7 @@ def write(command_line_excel_filename):
                 dataset['resources'][index]['response_ok'] = ok
                 dataset['resources'][index]['response_code'] = response_code
 
-        excel_output.add_dataset(dataset)
+        excel_output.add_dataset(dataset, node_data)
 
 
     excel_output.finish()

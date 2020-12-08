@@ -180,7 +180,7 @@ class MainGui(Frame):
         self.update_config()
         logging.debug("Starting Excelwriter module")
         # self.download_button.configure(state=DISABLED)
-        excelwriter.write()
+        excelwriter.write(False)
         # self.download_button.configure(state=NORMAL)
 
     def action_upload(self):
