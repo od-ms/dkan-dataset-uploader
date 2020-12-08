@@ -7,8 +7,8 @@ password = 123456
 filename = dkan_resources.xlsx
 
 [features]
-skip_resources = False
-check_resources = False
+skip_resources = No
+check_resources = No
 
 [api]
 package_details = /api/3/action/package_show?id=
