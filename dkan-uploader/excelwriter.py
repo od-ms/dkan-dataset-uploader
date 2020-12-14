@@ -7,6 +7,7 @@ import logging
 import xlsxwriter
 import xlrd
 import httplib2
+import hashlib
 import os.path
 from pprint import pprint
 from jsonschema import validate
@@ -124,7 +125,8 @@ class ExcelResultFile:
         #   TODO: So kann man eine Liste der TAGS bekommen, aber ohne IDs..?!?!
         #           => https://opendata.stadt-muenster.de/autocomplete_deluxe/taxonomy/field_dataset_tags/%20/500?term=&synonyms=2
 
-        #   TODO: Der Testdatensatz ist "bevölkerungsindikatoren-soziales" - da wurden alle Felder mit Daten gefüllt, aber nur teilweise sinnvoll.
+        #   TODO: Der Testdatensatz - da wurden alle Felder mit Daten gefüllt, aber nur teilweise sinnvoll.
+        #           "bevölkerungsindikatoren-soziales" - 3877be7b-5cc8-4d54-adfe-cca0f4368a13
         #                                            ^ den nachher wieder richtig einstellen!
         columns = {
             'Dataset-ID': "id",
@@ -157,7 +159,7 @@ class ExcelResultFile:
             # Additional Info --> ok
             # Resources --> ok
 
-            'Schlagworte'
+            # 'Schlagworte': TODO,
             # Playground => ziemlich viele Felder!
             # Harvest Source
             # Versionsinformationen ?
@@ -403,14 +405,18 @@ def read_package_list_with_resources():
     """Read all datasets and resources from DKAN portal
         Or from local cache file if it exists
     """
-    return read_remote_json_with_cache(config.api_resource_list, 'current_package_list_with_resources.json')
+    return read_remote_json_with_cache(config.api_resource_list,
+        'current_package_list_with_resources{}.json'.format( hashlib.md5(config.api_resource_list.encode()).hexdigest() )
+    )
 
 
 def write(command_line_excel_filename):
     data = read_package_list_with_resources()
 
-    logging.debug("skip_resouces %s", config.skip_resources)
-    logging.debug("check_resources %s", config.check_resources)
+    for item in dir(config):
+        if not item.startswith("__"):
+            logging.debug("CONFIG %s", "{}: {}".format(item, getattr(config,item)))
+
 
     # iterate all datasets once to find all defined extras
     extras = {}
@@ -442,7 +448,7 @@ def write(command_line_excel_filename):
             raise ValueError('Dataset format is not valid. Scroll up, see detailed error in line before pprint(dataset)')
 
         dataset_id = dataset['id']
-        if config.dataset_ids and (config.dataset_ids.find(dataset_id) != -1):
+        if config.dataset_ids and (config.dataset_ids.find(dataset_id) == -1):
             continue
 
         if (not config.overwrite_rows) and (dataset_id in existing_dataset_ids):

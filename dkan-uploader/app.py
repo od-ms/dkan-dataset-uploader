@@ -24,6 +24,7 @@ class DkanUploader:
 
         args = DkanUploader.get_commandline_args()
 
+        # copy command line arguments into config
         config.overwrite_rows = True if args.overwrite else False
         config.dataset_ids = args.ids
 
@@ -58,7 +59,7 @@ class DkanUploader:
             help='Run in DOWNLOAD mode: The excel file will be overwritten! It will be filled with data from the DKAN instance')
         parser.add_argument('-or', '--overwrite-rows', action='store_true', dest='overwrite',
             help='If datasets already exist in the excel file, overwrite the row content. (Default: no)')
-        parser.add_argument('-n', '--ids', action='store_true', dest='ids',
+        parser.add_argument('-n', '--ids', action='store', dest='ids',
             help='Comma separated list of dataset IDs. Limits action to these dataset IDs (upload or download)')
 
         args = parser.parse_args()
