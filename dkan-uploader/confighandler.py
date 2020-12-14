@@ -20,13 +20,16 @@ def read_config_file():
     else:
         for section in config_ini.sections():
             logging.debug('config: %s %s', section, dict(config_ini[section]))
+        try: 
+            config.dkan_url = config_ini['dkan']['dkan_url']
+            config.dkan_username = config_ini['dkan']['username']
+            config.dkan_password = config_ini['dkan']['password']
+            config.excel_filename = config_ini['excel']['filename']
+            config.skip_resources = config_ini.getboolean('features','skip_resources')
+            config.check_resources = config_ini.getboolean('features','check_resources')
+        except: 
+            logging.error("Beim Lesen der Config-Datei ist ein Fehler aufgetreten. Es wird mit der Standard-Config fortgefahren.")
 
-        config.dkan_url = config_ini['dkan']['dkan_url']
-        config.dkan_username = config_ini['dkan']['username']
-        config.dkan_password = config_ini['dkan']['password']
-        config.excel_filename = config_ini['excel']['filename']
-        config.skip_resources = config_ini.getboolean('features','skip_resources')
-        config.check_resources = config_ini.getboolean('features','check_resources')
 
     if 'api' in config_ini:
         if ('package_details' in config_ini['api']) and config_ini['api']['package_details']:

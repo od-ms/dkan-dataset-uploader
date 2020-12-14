@@ -10,8 +10,10 @@ excel_filename = ""
 skip_resources = False
 check_resources = False
 
-api_package_details = "" # endpoint is used to fetch single packages by id
-api_resource_list = ""  # endpoint is used to fetch list of (all) packages
+# endpoint is used to fetch single packages by id
+api_package_details = "/api/3/action/package_show?id=" 
+# endpoint is used to fetch list of (all) packages
+api_resource_list = "/api/3/action/current_package_list_with_resources?limit=10"  
 api_encoding = "utf-8"
 
 # command line options
