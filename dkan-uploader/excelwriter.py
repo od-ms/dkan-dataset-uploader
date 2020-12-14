@@ -131,7 +131,7 @@ class ExcelResultFile:
 
             logging.debug("got nested dkan node: %s => {}".format(node_value), keys)
 
-        except (TypeError, KeyError):
+        except (TypeError, KeyError, IndexError):
             logging.debug("Probably empty value, did not find key: %s", keys)
 
         return node_value
@@ -148,7 +148,7 @@ class ExcelResultFile:
         # 2. https://opendata.stadt-muenster.de/api/dataset/node/41334.json
         #    => to get the missing details..
 
-        #   TODO: So kann man eine Liste der TAGS bekommen, aber ohne IDs..?!?!
+        #   TODO: So kann man eine Liste der TAGS bekommen, aber ohne IDs..?!?! => Nein, die IDs fehlen
         #           => https://opendata.stadt-muenster.de/autocomplete_deluxe/taxonomy/field_dataset_tags/%20/500?term=&synonyms=2
 
         #   TODO: Der Testdatensatz - da wurden alle Felder mit Daten gefüllt, aber nur teilweise sinnvoll.
@@ -169,7 +169,7 @@ class ExcelResultFile:
             'Description': "notes",
             'Textformat': ["body", "und", 0, "format"],
             'URL': "url",
-            # 'Tags'
+            'Tags': 'CATEGORIES',
             'Groups': 'COLLECT|groups.title',
             'Frequency': ['field_frequency', 'und', 0, 'value'], #example value: "R/P1Y" ?
             'Temporal Coverage Start': ['field_temporal_coverage', 'und', 0, 'value'],
@@ -180,13 +180,14 @@ class ExcelResultFile:
             'Public Access Level': ["field_public_access_level", "und", 0, "value"],
             'Data Standard': ['field_conforms_to', "und", 0, "url"],
             'Language': ["field_language", 'und', 0, 'value'],
-            # Related Content
-
+            # TODO: Related Content
             # Additional Info --> ok
             # Resources --> ok
-
-            # 'Schlagworte': TODO,
+            'Schlagworte': 'TAGS',
+            # TODO also diese Playground Felder sollte man vielleicht auch exportieren können:
             # Playground => ziemlich viele Felder!
+
+            # TODO: Ich denke mal den rest benötigt man nicht, oder?
             # Harvest Source
             # Versionsinformationen ?
             # Einstellungen für Kommentare (Öffnen / Geschlossen)
@@ -241,6 +242,26 @@ class ExcelResultFile:
                     for group in dataset['groups']:
                         groups.append(group['title'])
                     value = ", ".join(groups)
+            elif (column_key[:10] == "CATEGORIES"):
+                if 'tags' in dataset:
+                    c_index = 0
+                    categories = []
+                    # read category name from ckan_data and read category id from dkan_node
+                    # TODO: confirm that these are in the same order, otherwise this wont work at all
+                    for category in dataset['tags']:
+                        c_id = self.get_nested_json_value(dkan_node, ["field_tags", 'und', c_index, 'tid'])
+                        categories.append('"{}" ({})'.format(category['name'], c_id))
+                        c_index += 1
+                    value = ", ".join(categories)
+            elif (column_key[:4] == "TAGS"):
+                if 'tags' in dataset:
+                    # TODO: Because of broken DKAN api, we can only get the tag ID, but not the tag name ... 
+                    tags = []
+                    for t_index in range(0,10):
+                        t_id = self.get_nested_json_value(dkan_node, ["field_dataset_tags", 'und', t_index, 'tid'])
+                        if t_id:
+                            tags.append("({})".format(t_id))
+                        value = ", ".join(tags)
 
             else:
                 value = dataset[column_key] if column_key in dataset else None
