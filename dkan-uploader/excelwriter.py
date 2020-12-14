@@ -15,6 +15,10 @@ from urllib.request import urlopen
 from timeit import default_timer as timer
 from . import config
 
+class AbortProgramError(RuntimeError):
+   def __init__(self, arg):
+      self.message = arg
+
 class ExcelResultFile:
     """ Handle creation of Excel content """
 
@@ -48,6 +52,20 @@ class ExcelResultFile:
         try:
             wb = xlrd.open_workbook(loc)
             sheet = wb.sheet_by_index(0)
+
+            # check if columns of excel file are same as our config
+            headline_row = self.get_column_config()
+            for i in range(sheet.ncols):
+                column_header = sheet.cell_value(0, i)
+                if column_header != headline_row[i]: 
+                    logging.warn("Different fields in DKAN and Excel file: {} != {}".format(column_header, headline_row[i]))
+                    raise AbortProgramError(
+                        "Die bereits existierende Excel-Datei hat einen falschen Spalten-Aufbau.\nProblem in Spalte {}: Erwartet war '{}', aber gefunden wurde '{}'\nLaden Sie den DKAN Inhalt in eine andere Excel-Datei (z.B. geben Sie einen Dateinamen an, der noch nicht existiert, und vergleichen Sie dann die Spalten der beiden Dateien)"
+                        .format(i, headline_row[i], column_header)
+                        )
+
+                
+
             for j in range(1, sheet.nrows):
                 excelrow = []
                 for i in range(sheet.ncols):
@@ -72,20 +90,28 @@ class ExcelResultFile:
         logging.debug("Existing ids: %s", self.existing_dataset_ids)
         return self.existing_dataset_ids
 
+
     def initialize_new_excel_file(self):
 
         # init workbook objects
         self.workbook = xlsxwriter.Workbook(self.filename)
         self.worksheet = self.workbook.add_worksheet()
         self.bold = self.workbook.add_format({'bold': True})
-        self.worksheet.set_column('A:A', 20)
+        self.worksheet.set_column('A:A', 15)
+        self.worksheet.set_column('C:C', 20)
+
+        # Add group ("level: 1") to some columns so that they are "einklappbar"
+        self.worksheet.set_column('D:Y', None, None, {'level': 1})
 
         # write header row
+        self.worksheet.write_row('A1', self.get_column_config(), self.bold)
+
+
+    def get_column_config(self):
         columns = list(self.get_column_config_dataset().keys())
         if not config.skip_resources:
             columns.extend(self.get_column_config_resource().keys())
-
-        self.worksheet.write_row('A1', columns, self.bold)
+        return columns        
 
 
     def add_plain_row(self, column_contents):
@@ -411,89 +437,93 @@ def read_package_list_with_resources():
 
 
 def write(command_line_excel_filename):
-    data = read_package_list_with_resources()
+    try: 
+        data = read_package_list_with_resources()
 
-    for item in dir(config):
-        if not item.startswith("__"):
-            logging.debug("CONFIG %s", "{}: {}".format(item, getattr(config,item)))
-
-
-    # iterate all datasets once to find all defined extras
-    extras = {}
-    for dataset in data['result'][0]:
-        if "extras" in dataset:
-            for extra in dataset["extras"]:
-                keyName = extra["key"]
-                if keyName in extras:
-                    extras[keyName] = extras[keyName] + 1
-                else:
-                    extras[keyName] = 0
-    logging.info("All 'additional-info'-fields of DKAN response: %s", extras)
-
-    # initialize excel file
-    excel_output = ExcelResultFile(command_line_excel_filename if command_line_excel_filename else config.excel_filename, extras)
-
-    excel_output.initialize_new_excel_file_with_existing_content()
-    existing_dataset_ids = excel_output.get_existing_dataset_ids()
-
-    resource_status = ResourceStatus()
-
-    # write all datasets and resources to excel file
-    number = 0
-    for dataset in data['result'][0]:
-
-        isValid = validateJson(dataset, datasetSchema)
-        if not isValid:
-            pprint(dataset)
-            raise ValueError('Dataset format is not valid. Scroll up, see detailed error in line before pprint(dataset)')
-
-        dataset_id = dataset['id']
-        if config.dataset_ids and (config.dataset_ids.find(dataset_id) == -1):
-            continue
-
-        if (not config.overwrite_rows) and (dataset_id in existing_dataset_ids):
-            logging.debug("Already in Excel. Skipping %s", dataset_id)
-            continue
-
-        if dataset['type'] != 'Dataset':
-            logging.debug("Item is not of type 'Dataset'. Skipping %s", dataset_id)
-            continue
-
-        number += 1
-        if number == 3:
-            logging.debug("Stopping now")
-            break
-
-        node_data = None
-        # Sadly all the api endpoints with a list of datasets have missing data
-        # That is why we have to make two extra calls per dataset.  .. maybe if there is another way..?
-        if config.download_extended_dataset_infos:
-            node_search = read_remote_json_with_cache(config.api_find_node_id.format(dataset_id), '{}.json'.format(dataset_id))
-            if node_search[0]['nid']:
-                nid = node_search[0]['nid']
-                node_data = read_remote_json_with_cache(config.api_get_node_details.format(nid), '{}-complete.json'.format(dataset_id))
-                isValid = validateJson(node_data, nodeSchema)
-                if not isValid:
-                    pprint(dataset)
-                    raise ValueError('Dataset format is not valid. Scroll up, see detailed error in line before pprint(dataset)')
+        for item in dir(config):
+            if not item.startswith("__"):
+                logging.debug("CONFIG %s", "{}: {}".format(item, getattr(config,item)))
 
 
-        # http-check dataset resources and add check result into nested resource list
-        if (not config.skip_resources) and ('resources' in dataset):
-            for index, resource in enumerate(dataset['resources']):
-                if config.check_resources:
-                    logging.debug("Check: %s", resource['url'])
-                    (ok, response_code) = resource_status.check(resource['url'])
-                    logging.debug("Response: %s %s", ok, response_code)
-                else:
-                    ok = response_code = None
-                dataset['resources'][index]['response_ok'] = ok
-                dataset['resources'][index]['response_code'] = response_code
+        # iterate all datasets once to find all defined extras
+        extras = {}
+        for dataset in data['result'][0]:
+            if "extras" in dataset:
+                for extra in dataset["extras"]:
+                    keyName = extra["key"]
+                    if keyName in extras:
+                        extras[keyName] = extras[keyName] + 1
+                    else:
+                        extras[keyName] = 0
+        logging.info("All 'additional-info'-fields of DKAN response: %s", extras)
 
-        excel_output.add_dataset(dataset, node_data)
+        # initialize excel file
+        excel_output = ExcelResultFile(command_line_excel_filename if command_line_excel_filename else config.excel_filename, extras)
+
+        excel_output.initialize_new_excel_file_with_existing_content()
+        existing_dataset_ids = excel_output.get_existing_dataset_ids()
+
+        resource_status = ResourceStatus()
+
+        # write all datasets and resources to excel file
+        number = 0
+        for dataset in data['result'][0]:
+
+            isValid = validateJson(dataset, datasetSchema)
+            if not isValid:
+                pprint(dataset)
+                raise ValueError('Dataset format is not valid. Scroll up, see detailed error in line before pprint(dataset)')
+
+            dataset_id = dataset['id']
+            if config.dataset_ids and (config.dataset_ids.find(dataset_id) == -1):
+                continue
+
+            if (not config.overwrite_rows) and (dataset_id in existing_dataset_ids):
+                logging.debug("Already in Excel. Skipping %s", dataset_id)
+                continue
+
+            if dataset['type'] != 'Dataset':
+                logging.debug("Item is not of type 'Dataset'. Skipping %s", dataset_id)
+                continue
+
+            number += 1
+            if number == 3:
+                logging.debug("Stopping now")
+                break
+
+            node_data = None
+            # Sadly all the api endpoints with a list of datasets have missing data
+            # That is why we have to make two extra calls per dataset.  .. maybe if there is another way..?
+            if config.download_extended_dataset_infos:
+                node_search = read_remote_json_with_cache(config.api_find_node_id.format(dataset_id), '{}.json'.format(dataset_id))
+                if node_search[0]['nid']:
+                    nid = node_search[0]['nid']
+                    node_data = read_remote_json_with_cache(config.api_get_node_details.format(nid), '{}-complete.json'.format(dataset_id))
+                    isValid = validateJson(node_data, nodeSchema)
+                    if not isValid:
+                        pprint(dataset)
+                        raise ValueError('Dataset format is not valid. Scroll up, see detailed error in line before pprint(dataset)')
 
 
-    excel_output.finish()
+            # http-check dataset resources and add check result into nested resource list
+            if (not config.skip_resources) and ('resources' in dataset):
+                for index, resource in enumerate(dataset['resources']):
+                    if config.check_resources:
+                        logging.debug("Check: %s", resource['url'])
+                        (ok, response_code) = resource_status.check(resource['url'])
+                        logging.debug("Response: %s %s", ok, response_code)
+                    else:
+                        ok = response_code = None
+                    dataset['resources'][index]['response_ok'] = ok
+                    dataset['resources'][index]['response_code'] = response_code
+
+            excel_output.add_dataset(dataset, node_data)
+
+
+        excel_output.finish()
+
+    except AbortProgramError as err:
+        logging.error(err.message)
 
 
 # DKAN data.json file format:
