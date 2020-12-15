@@ -2,22 +2,27 @@
 
 import sys
 import json
-import jsonschema
 import logging
-import xlsxwriter
-import xlrd
-import httplib2
 import hashlib
 import os.path
-from pprint import pprint
-from jsonschema import validate
 from urllib.request import urlopen
 from timeit import default_timer as timer
+from pprint import pprint
+from jsonschema import validate
+from jsonschema.exceptions import ValidationError
+import xlrd
+import xlsxwriter
+import httplib2
 from . import config
 
+
 class AbortProgramError(RuntimeError):
-   def __init__(self, arg):
-      self.message = arg
+    """ We create an own Error to catch on top level // better control of program flow """
+
+    def __init__(self, message):
+        super(AbortProgramError, self).__init__(message)
+        self.message = message
+
 
 class ExcelResultFile:
     """ Handle creation of Excel content """
@@ -57,14 +62,19 @@ class ExcelResultFile:
             headline_row = self.get_column_config()
             for i in range(sheet.ncols):
                 column_header = sheet.cell_value(0, i)
-                if column_header != headline_row[i]: 
-                    logging.warn("Different fields in DKAN and Excel file: {} != {}".format(column_header, headline_row[i]))
+                if i >= len(headline_row):
+                    logging.warning(_("Folgende Spalte wird ignoriert: {}").format(column_header))
+                elif column_header != headline_row[i]:
+                    logging.warning(_("Different fields in DKAN and Excel file: {} != {}").format(column_header, headline_row[i]))
                     raise AbortProgramError(
-                        "Die bereits existierende Excel-Datei hat einen falschen Spalten-Aufbau.\nProblem in Spalte {}: Erwartet war '{}', aber gefunden wurde '{}'\nLaden Sie den DKAN Inhalt in eine andere Excel-Datei (z.B. geben Sie einen Dateinamen an, der noch nicht existiert, und vergleichen Sie dann die Spalten der beiden Dateien)"
+                        _("Die bereits existierende Excel-Datei hat einen falschen Spalten-Aufbau.\n"
+                            + "Problem in Spalte {}: Erwartet war '{}', aber gefunden wurde '{}'\n"
+                            + "Laden Sie den DKAN Inhalt am besten in eine andere Excel-Datei"
+                            + " (z.B. geben Sie einen Dateinamen an, der noch nicht existiert, und vergleichen Sie dann die Spalten der beiden Dateien)")
                         .format(i, headline_row[i], column_header)
                         )
 
-                
+
 
             for j in range(1, sheet.nrows):
                 excelrow = []
@@ -111,7 +121,7 @@ class ExcelResultFile:
         columns = list(self.get_column_config_dataset().keys())
         if not config.skip_resources:
             columns.extend(self.get_column_config_resource().keys())
-        return columns        
+        return columns
 
 
     def add_plain_row(self, column_contents):
@@ -125,11 +135,12 @@ class ExcelResultFile:
         try:
             if len(keys) == 4:
                 node_value = target_dict[keys[0]][keys[1]][keys[2]][keys[3]]
+            elif len(keys) == 3:
+                node_value = target_dict[keys[0]][keys[1]][keys[2]]
             else:
-                logging.error("Not implemented for {} keys in: %s".format(len(keys)), keys)
-                raise Exception("Not implemented for {} keys in: %s".format(len(keys)), keys)
+                raise Exception("get_nested_json_value() not implemented for {} keys in: {}".format(len(keys), keys))
 
-            logging.debug("got nested dkan node: %s => {}".format(node_value), keys)
+            logging.debug("got nested dkan node: %s => %s", node_value, keys)
 
         except (TypeError, KeyError, IndexError):
             logging.debug("Probably empty value, did not find key: %s", keys)
@@ -147,9 +158,6 @@ class ExcelResultFile:
         #    => to get the node id
         # 2. https://opendata.stadt-muenster.de/api/dataset/node/41334.json
         #    => to get the missing details..
-
-        #   TODO: So kann man eine Liste der TAGS bekommen, aber ohne IDs..?!?! => Nein, die IDs fehlen
-        #           => https://opendata.stadt-muenster.de/autocomplete_deluxe/taxonomy/field_dataset_tags/%20/500?term=&synonyms=2
 
         #   TODO: Der Testdatensatz - da wurden alle Felder mit Daten gefüllt, aber nur teilweise sinnvoll.
         #           "bevölkerungsindikatoren-soziales" - 3877be7b-5cc8-4d54-adfe-cca0f4368a13
@@ -180,15 +188,13 @@ class ExcelResultFile:
             'Public Access Level': ["field_public_access_level", "und", 0, "value"],
             'Data Standard': ['field_conforms_to', "und", 0, "url"],
             'Language': ["field_language", 'und', 0, 'value'],
-            # TODO: Related Content
-            # Additional Info --> ok
-            # Resources --> ok
+            'Related Content': 'RELATED',
+            # [x] Additional Info => wird anders eingebunden
+            # [x] Resources => wird anders eingebunden
             'Schlagworte': 'TAGS',
-            # TODO also diese Playground Felder sollte man vielleicht auch exportieren können:
-            # Playground => ziemlich viele Felder!
+            # [x] Playground => Ein paar Felder, die anscheinend nur für Köln relevant sind
+            # [x] Harvest Source => verwenden wir nicht, habe ich in der Doku erklärt
 
-            # TODO: Ich denke mal den rest benötigt man nicht, oder?
-            # Harvest Source
             # Versionsinformationen ?
             # Einstellungen für Kommentare (Öffnen / Geschlossen)
             # Informationen zum Autor
@@ -233,16 +239,25 @@ class ExcelResultFile:
                 extra_key = column_key[6:]
                 #logging.debug("searching extra key %s", extra_key)
                 extra_obj = [x for x in dataset["extras"] if x["key"] == extra_key]
-                #logging.debug("found extra obj %s", extra_obj)
-                value = extra_obj[0]["value"] if len(extra_obj) else None
-            elif (column_key[:8] == "COLLECT|"):
+                value = extra_obj[0]["value"] if extra_obj else None
+
+            elif column_key[:8] == "COLLECT|":
                 extra_key = column_key[8:]
                 if 'groups' in dataset:
                     groups = []
                     for group in dataset['groups']:
                         groups.append(group['title'])
                     value = ", ".join(groups)
-            elif (column_key[:10] == "CATEGORIES"):
+
+            elif column_key[:7] == "RELATED":
+                related_content = []
+                for t_index in range(0,10):
+                    rel = self.get_nested_json_value(dkan_node, ["field_related_content", 'und', t_index])
+                    if rel:
+                        related_content.append('"{}" ({})'.format(rel['title'], rel['url']))
+                    value = ", ".join(related_content)
+
+            elif column_key[:10] == "CATEGORIES":
                 if 'tags' in dataset:
                     c_index = 0
                     categories = []
@@ -253,15 +268,15 @@ class ExcelResultFile:
                         categories.append('"{}" ({})'.format(category['name'], c_id))
                         c_index += 1
                     value = ", ".join(categories)
-            elif (column_key[:4] == "TAGS"):
-                if 'tags' in dataset:
-                    # TODO: Because of broken DKAN api, we can only get the tag ID, but not the tag name ... 
-                    tags = []
-                    for t_index in range(0,10):
-                        t_id = self.get_nested_json_value(dkan_node, ["field_dataset_tags", 'und', t_index, 'tid'])
-                        if t_id:
-                            tags.append("({})".format(t_id))
-                        value = ", ".join(tags)
+
+            elif column_key[:4] == "TAGS":
+                # Because of weird DKAN api, we can only get the tag ID, but not the tag name ...
+                tags = []
+                for t_index in range(0,10):
+                    t_id = self.get_nested_json_value(dkan_node, ["field_dataset_tags", 'und', t_index, 'tid'])
+                    if t_id:
+                        tags.append("({})".format(t_id))
+                    value = ", ".join(tags)
 
             else:
                 value = dataset[column_key] if column_key in dataset else None
@@ -412,7 +427,7 @@ nodeSchema = {
 def validateJson(jsonData, check_schema):
     try:
         validate(instance=jsonData, schema=check_schema)
-    except jsonschema.exceptions.ValidationError as err:
+    except ValidationError as err:
         pprint(err)
         return False
     return True
@@ -424,10 +439,11 @@ def read_remote_json_with_cache(remote_url, temp_file):
     # prefix with tempdir and convert slashes to backslashes on windows
     temp_file = os.path.normpath('temp/' + temp_file)
     remote_url = config.dkan_url + remote_url
+    data = None
 
     try:
         if os.path.isfile(temp_file):
-            logging.info('Using cached file "' + temp_file + '"')
+            logging.info('Using cached file "%s" ', temp_file)
         else:
             ti = timer()
             f = urlopen(remote_url)
@@ -458,7 +474,7 @@ def read_package_list_with_resources():
 
 
 def write(command_line_excel_filename):
-    try: 
+    try:
         data = read_package_list_with_resources()
 
         for item in dir(config):
