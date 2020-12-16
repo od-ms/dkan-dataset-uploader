@@ -4,26 +4,44 @@ import sys
 import logging
 import xlrd
 from . import config
+from . import constants
 
 
-def read():
+def read(command_line_excel_filename):
     """ read first row of file """
 
-    logging.info("Reading excel file: %s", config.excel_filename)
-    loc = (config.excel_filename)
+    dkan_dataset_fields = constants.get_column_config_dataset()
+    dkan_resource_fields = constants.get_column_config_resource()
+    dkan_fields = {**dkan_dataset_fields, **dkan_resource_fields}
+
+    excel_filename = command_line_excel_filename if command_line_excel_filename else config.excel_filename
+    logging.info(_("Excel Datei wird eingelesen: %s"), excel_filename)
+    loc = (excel_filename)
 
     try:
         wb = xlrd.open_workbook(loc)
         sheet = wb.sheet_by_index(0)
         sheet.cell_value(0, 0)
 
-        logging.info("Columns in exel file.")
+        used_fields = {}
+        logging.info(_("Gefundene Spaltenüberschriften der Excel-Datei:"))
         for i in range(sheet.ncols):
-            logging.info(" * %s", sheet.cell_value(0, i))
+            column_name = sheet.cell_value(0, i)
+            if column_name in dkan_fields:
+                used_fields[column_name] = 1
+                logging.info(" o %s", column_name)
+            elif column_name[:6] == "Extra-":
+                logging.info(_(" o %s => Zusätzliches Info-Feld"), column_name)
+            else:
+                logging.warning(_(" X %s => Kein passendes DKAN-Feld gefunden"), column_name)
+
+        for field in dkan_fields:
+            if not field in used_fields:
+                logging.warning(_(" > %s => Fehlt in Excel-Datei"), field)
 
     except:
         e = sys.exc_info()[0]
-        logging.warning("Error: %s", e)
+        logging.warning(_("Fehler: %s"), e)
 
 
 # DKAN data.json file format:
