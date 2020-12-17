@@ -138,13 +138,15 @@ class ExcelResultFile:
                 node_value = target_dict[keys[0]][keys[1]][keys[2]][keys[3]]
             elif len(keys) == 3:
                 node_value = target_dict[keys[0]][keys[1]][keys[2]]
+            elif len(keys) == 1:
+                node_value = target_dict[keys[0]]
             else:
                 raise Exception("get_nested_json_value() not implemented for {} keys in: {}".format(len(keys), keys))
 
-            logging.debug("got nested dkan node: %s => %s", node_value, keys)
+            logging.debug("Nested dkan-value: %s => %s", keys[0], node_value)
 
         except (TypeError, KeyError, IndexError):
-            logging.debug("Probably empty value, did not find key: %s", keys)
+            logging.debug("Empty key: %s", keys)
 
         return node_value
 

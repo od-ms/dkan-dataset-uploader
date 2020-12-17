@@ -3,30 +3,49 @@
 import sys
 import logging
 import xlrd
+from .datasetuploader import DatasetUploader
 from . import config
 from . import constants
-
 
 def read(command_line_excel_filename):
     """ read first row of file """
 
-    dkan_dataset_fields = constants.get_column_config_dataset()
-    dkan_resource_fields = constants.get_column_config_resource()
-    dkan_fields = {**dkan_dataset_fields, **dkan_resource_fields}
+    er = ExcelReader()
+    er.import_excel_file_to_dkan(command_line_excel_filename if command_line_excel_filename else config.excel_filename)
 
-    excel_filename = command_line_excel_filename if command_line_excel_filename else config.excel_filename
-    logging.info(_("Excel Datei wird eingelesen: %s"), excel_filename)
-    loc = (excel_filename)
 
-    try:
+class ExcelReader:
+    """
+        Reads all the rows and columns from the excel file and writes them to the nearest dkan instance
+    """
+
+    columns_in_file = {}
+    datasetuploader = None
+
+    def __init__(self):
+        self.columns_in_file = {}
+        self.datasetuploader = DatasetUploader()
+
+    def import_excel_file_to_dkan(self, excel_filename):
+        dkan_dataset_fields = constants.get_column_config_dataset()
+        dkan_resource_fields = constants.get_column_config_resource()
+        dkan_fields = {**dkan_dataset_fields, **dkan_resource_fields}
+
+        logging.info(_("Excel Datei wird eingelesen: %s"), excel_filename)
+        loc = (excel_filename)
+
         wb = xlrd.open_workbook(loc)
         sheet = wb.sheet_by_index(0)
         sheet.cell_value(0, 0)
 
         used_fields = {}
+        columns = []
         logging.info(_("Gefundene Spaltenüberschriften der Excel-Datei:"))
         for i in range(sheet.ncols):
+
             column_name = sheet.cell_value(0, i)
+            columns.append(column_name)
+
             if column_name in dkan_fields:
                 used_fields[column_name] = 1
                 logging.info(" o %s", column_name)
@@ -39,46 +58,54 @@ def read(command_line_excel_filename):
             if not field in used_fields:
                 logging.warning(_(" > %s => Fehlt in Excel-Datei"), field)
 
-    except:
-        e = sys.exc_info()[0]
-        logging.warning(_("Fehler: %s"), e)
+        constants.Dataset.verify()
+
+        self.columns_in_file = columns
+        self.parse_rows(sheet)
 
 
-# DKAN data.json file format:
-# ---------------------------
-#                   ( wget https://dkan-url/data.json )
-"""
- 'dataset': [{'@type': 'dcat:Dataset',
-    'accessLevel': 'public',
-    'contactPoint': {'fn': 'Open Data Koordination',
-                    'hasEmail': '...'},
-    'description': 'Am 30. Januar 2020 wurde die neue '
-                    'beschlossen. Das Wahlgebiet "Stadt Münster" für '
-    'distribution': [{'@type': 'dcat:Distribution',
-                    'accessURL': '...',
-                    'description': 'In dieser PDF-Datei ist die '
-                                    'Änderung der '
-                                    '2020 visuell dargestellt.',
-                    'format': 'pdf',
-                    'title': 'Übersicht der geänderten '
-                                'Wahlbezirke'},
-                    {'@type': 'dcat:Distribution',
-                    'accessURL': '...',
-                    'description': 'In dieser Shape-Datei sind die '
-                                    'aktuellen Kommunalwahlbezirke '
-                                    'verfügbar.',
-                    'format': 'shape',
-                    'title': 'Aktuelle Kommunalwahlbezirke 2020'}],
-    'identifier': '0e5931cf-9e8f-4ff0-afe3-54798a39d1bb',
-    'issued': '2020-08-25',
-    'keyword': ['Politik und Wahlen'],
-    'landingPage': '....',
-    'license': 'https://www.govdata.de/dl-de/by-2-0',
-    'modified': '2020-08-25',
-    'publisher': {'@type': 'org:Organization',
-                'name': 'Stadt '},
-    'spatial': 'POLYGON ((7.5290679931641 51.89293553285, '
-                '52.007625513725, 7.7350616455078 51.89293553285))',
-    'title': 'Änderungen der Wahlbezirke zur Kommunalwahl  '
-            '2020'},
-"""
+
+    def parse_rows(self, sheet):
+
+        # TODO: datasetuploader expects to get the complete dataset + all its resources!
+        # we need to read all the rows of the current dataset:
+        # A) first row = the dataset + first resource
+        # B) more rows for the other resources, until next dataset begins
+
+
+        last_dataset = None
+        resources = []
+        for row_nr in range(1, sheet.nrows):
+
+            row = {}
+            for i in range(sheet.ncols):
+                column_value = sheet.cell_value(row_nr, i)
+                column_name = self.columns_in_file[i]
+                row[column_name] = column_value
+
+            logging.debug("Zeile %s, row: %s", row_nr, row)
+
+            dataset = constants.Dataset.create(row)
+
+            if dataset:
+                logging.debug("last dataset %s", last_dataset)
+                # All resource columns were collected. A new dataset should be created.
+                if last_dataset:
+                    self.datasetuploader.processDataset(last_dataset, resources)
+                elif resources:
+                    logging.warning(_("%s Resourcen werden ignoriert."), len(resources))
+
+                resources = []
+                last_dataset = dataset
+
+            resource = constants.Resource.create(row)
+            if resource:
+                resources.append(resource)
+            else:
+                logging.info(_("Zeile %s enthielt keine Ressource."), row_nr)
+
+        # create last dataset in file
+        if last_dataset:
+            self.datasetuploader.processDataset(last_dataset, resources)
+
+
