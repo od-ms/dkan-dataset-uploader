@@ -22,8 +22,11 @@ class Resource:
         for column in get_column_config_resource():
             if column in row and row[column]:
                 count_non_empty_dataset_fields += 1
-        logging.info(_("Gefundende Felder: %s"), count_non_empty_dataset_fields)
-        if count_non_empty_dataset_fields < 2:
+            else:
+                logging.debug("not found col: %s", column)
+        logging.info(_("Gefundende Datensatz-Felder: %s/%s"), count_non_empty_dataset_fields, len(get_column_config_resource()))
+
+        if count_non_empty_dataset_fields < 1:
             return None
 
         # Check if mandatory fields are set
@@ -32,11 +35,6 @@ class Resource:
             return None
 
         return Resource(row)
-
-    @staticmethod
-    def verify():
-        ''' Internal test: check if our Dataset class definition is correct '''
-        logging.warning("hier ist noch nichts programmiert")
 
     def getValue(self, valueName):
         return self._row[valueName]
@@ -96,7 +94,9 @@ class Dataset:
             if column in row and row[column]:
                 logging.debug("found col: %s", column)
                 count_non_empty_dataset_fields += 1
-        logging.info(_("Gefundende Datensatz-Felder: %s"), count_non_empty_dataset_fields)
+            else:
+                logging.debug("not found col: %s", column)
+        logging.info(_("Gefundende Datensatz-Felder: %s/%s"), count_non_empty_dataset_fields, len(get_column_config_dataset()))
         if count_non_empty_dataset_fields < 3:
             return None
 
@@ -146,7 +146,7 @@ def get_column_config_dataset():
     #    => to get the missing details..
 
     #   TODO: Der Testdatensatz - da wurden alle Felder mit Daten gefüllt, aber nur teilweise sinnvoll.
-    #           "bevölkerungsindikatoren-soziales" - 3877be7b-5cc8-4d54-adfe-cca0f4368a13
+    #           "bevölkerungsindikatoren-soziales" - 3877be7b-5cc8-4d54-adfe-cca0f4368a13 - nodeid
     #                                            ^ den nachher wieder richtig einstellen!
 
     columns_config = {
@@ -212,3 +212,291 @@ def get_column_config_resource():
     }
 
     return columns
+
+
+# JSON Schema of the dataset entries in endpoint "current_package_list_with_resources"
+datasetSchema = {
+    "type": "object",
+    "properties": {
+        "id": {"type": "string"},
+        "name": {"type": "string"},
+        "title": {"type": "string"},
+        "author": {"type": "string"},
+        "author_email": {"type": "string"}, # = "contact email"
+        "maintainer": {"type": "string"},           # useless
+        "maintainer_email": {"type": "string"},     # useless
+        "license_title": {"type": "string"},
+        "notes": {"type": "string"},        # = "description"
+        "url": {"type": "string"},
+        "state": {"type": "string"},
+        "log_message": {"type": "string"},          # ??
+        "private": {"type": "boolean"},             # ??
+        "revision_timestamp": {"type": "string"},
+        "metadata_created": {"type": "string"},
+        "metadata_modified": {"type": "string"},
+        "creator_user_id": {"type": "string"},
+        "type": {"type": "string"},                 # always "Dataset"
+        "resources": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "id": {"type": "string"},
+                    "revision_id": {"type": "string"},
+                    "url": {"type": "string"},
+                    "description": {"type": "string"},
+                    "format": {"type": "string"},
+                    "state": {"type": "string"},
+                    "revision_timestamp": {"type": "string"},
+                    "name": {"type": "string"},
+                    "mimetype": {"type": "string"},
+                    "size": {"type": "string"},
+                    "created": {"type": "string"},
+                    "resource_group_id": {"type": "string"},
+                    "last_modified": {"type": "string"},
+                    # these are added by the check-script (see bottom of file)
+                    "response_ok": {"type": "string"},
+                    "response_code": {"type": "string"}
+                },
+                "required": [ "id", "revision_id", "name", "url" ]
+            }
+        },
+        "tags": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "id": {"type": "string"},
+                    "vocabulary_id": {"type": "string"},
+                    "name": {"type": "string"}
+                },
+                "required": [ "id", "vocabulary_id", "name" ]
+            }
+        },
+        "groups": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "id": {"type": "string"},
+                    "title": {"type": "string"}, # this is the value that we want
+                    "description": {"type": "string"},
+                    "name": {"type": "string"}
+                },
+                "required": [ "name", "title", "id" ]
+            }
+        },
+        "extras": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "key": {"type": "string"},
+                    "value": {"type": "string"},
+                },
+                "required": [ "key", "value" ]
+            }
+        }
+    },
+    "required": [ "id", "name", "metadata_created", "type" ]
+}
+
+# JSON Schema for DKAN Nodes
+#   = response of dkan-api-endpoint "/api/dataset/node/{}.json" (config.api_get_node_details)
+nodeSchema = {
+    "type": "object",
+    "properties": {
+        "vid": {"type": "string"},
+        "uid": {"type": "string"},
+        "title": {"type": "string"},
+        "status": {"type": "string"},
+        "comment": {"type": "string"},
+        "promote": {"type": "string"},
+        "sticky": {"type": "string"},
+        "vuuid": {"type": "string"},
+        "nid": {"type": "string"},
+        "type": {"type": "string"},
+        "language": {"type": "string"},
+        "created": {"type": "string"},
+        "tnid": {"type": "string"},
+        "translate": {"type": "string"},
+        "uuid": {"type": "string"},
+        "revision_timestamp": {"type": "string"},
+        "revision_uid": {"type": "string"},
+        "body": {"$ref": "#/definitions/dkan_structure_single_value"},
+        "field_additional_info": {"$ref": "#/definitions/dkan_structure_additional_info"},
+        "field_contact_email": {"$ref": "#/definitions/dkan_structure"},
+        "field_contact_name": {"$ref": "#/definitions/dkan_structure"},
+        "field_data_dictionary": {"$ref": "#/definitions/dkan_structure"},
+        "field_frequency":  {"$ref": "#/definitions/dkan_structure_single_value"},
+        "field_granularity": {"$ref": "#/definitions/dkan_structure_single_value"},
+        "field_license": {"$ref": "#/definitions/dkan_structure_single_value"},
+        "field_public_access_level": {"$ref": "#/definitions/dkan_structure_single_value"},
+        "field_related_content": {"$ref": "#/definitions/dkan_structure"},
+        "field_resources": {"$ref": "#/definitions/dkan_structure_target_ids"},
+        "field_spatial": {"$ref": "#/definitions/dkan_structure_spatial"},
+        "field_spatial_geographical_cover": {"$ref": "#/definitions/dkan_structure_single_value"},
+        "field_tags": {"$ref": "#/definitions/dkan_structure_tids"},
+        "field_temporal_coverage": {"$ref": "#/definitions/dkan_structure_single_value"},
+        "og_group_ref": {"$ref": "#/definitions/dkan_structure_target_ids"},
+        "field_landing_page": {"$ref": "#/definitions/dkan_structure"},
+        "field_language": {"$ref": "#/definitions/dkan_structure_single_value"},
+        "field_pod_theme": {"type": "array"},
+        "field_rights": {"type": "array"},
+        "field_playground": {"$ref": "#/definitions/dkan_structure"},
+        "field_dataset_tags": {"$ref": "#/definitions/dkan_structure_tids"},
+        "path": {"type": "string"},
+        "cid": {"type": "string"},
+        "last_comment_timestamp": {"type": "string"},
+        "last_comment_name": { "anyOf": [ {"type": "string"}, {"type": "null"}]},
+        "last_comment_uid": {"type": "string"},
+        "comment_count": {"type": "string"},
+        "name": {"type": "string"},
+        "picture": {"type": "string"},
+        "data": {"type": "string"},
+    },
+    "required": [ "vid", "uid", "title", "status", "comment", "promote", "sticky",
+        "vuuid", "nid", "type", "language", "created", "changed", "tnid", "translate",
+        "uuid", "revision_timestamp", "revision_uid", "body", "field_additional_info",
+        "field_contact_email", "field_contact_name", "field_data_dictionary", "field_frequency",
+        "og_group_ref", "field_landing_page", "field_language", "field_tags", "field_dataset_tags"
+        ],
+    "definitions": {
+        "dkan_structure": {
+            "anyOf": [
+                {   "type": "object",
+                    "properties": {
+                        "und": {
+                            "type": "array",
+                            "minItems": 1
+                        }
+                    }
+                },
+                {   "type": "array",
+                    "maxItems": 0
+                }
+            ]
+        },
+        "dkan_structure_single_value": {
+            "anyOf": [
+                {   "type": "object",
+                    "properties": {
+                        "und": {
+                            "type": "array",
+                            "minItems": 1,
+                            "maxItems": 1,
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "value": {"type": "string"}
+                                },
+                                "required": ["value"]
+                            }
+                        }
+                    }
+                },
+                {   "type": "array",
+                    "maxItems": 0
+                }
+            ]
+        },
+        "dkan_structure_tids": {
+            "anyOf": [
+                {   "type": "object",
+                    "properties": {
+                        "und": {
+                            "type": "array",
+                            "minItems": 1,
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "tid": {"type": "string"}
+                                },
+                                "required": ["tid"]
+                            }
+                        }
+                    }
+                },
+                {   "type": "array",
+                    "maxItems": 0
+                }
+            ]
+        },
+        "dkan_structure_target_ids": {
+            "anyOf": [
+                {   "type": "object",
+                    "properties": {
+                        "und": {
+                            "type": "array",
+                            "minItems": 1,
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "target_id": {"type": "string"}
+                                },
+                                "required": ["target_id"]
+                            }
+                        }
+                    }
+                },
+                {   "type": "array",
+                    "maxItems": 0
+                }
+            ]
+        },
+        "dkan_structure_additional_info": {
+            "anyOf": [
+                {   "type": "object",
+                    "properties": {
+                        "und": {
+                            "type": "array",
+                            "minItems": 1,
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "first": {"type": "string"},
+                                    "second": {"type": "string"}
+                                },
+                                "required": ["first", "second"]
+                            }
+                        }
+                    }
+                },
+                {   "type": "array",
+                    "maxItems": 0
+                }
+            ]
+        },
+        "dkan_structure_spatial": {
+            "anyOf": [
+                {   "type": "object",
+                    "properties": {
+                        "und": {
+                            "type": "array",
+                            "minItems": 1,
+                            "maxItems": 1,
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "wkt": {"type": "string"},
+                                    "geo_type": {"type": "string"},
+                                    "lat": {"type": "string"},
+                                    "lon": {"type": "string"},
+                                    "left": {"type": "string"},
+                                    "top": {"type": "string"},
+                                    "right": {"type": "string"},
+                                    "bottom": {"type": "string"},
+
+                                },
+                                "required": ["wkt", "geo_type"]
+                            }
+                        }
+                    }
+                },
+                {   "type": "array",
+                    "maxItems": 0
+                }
+            ]
+        }
+    }
+}

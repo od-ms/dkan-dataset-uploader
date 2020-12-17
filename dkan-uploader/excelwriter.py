@@ -5,9 +5,8 @@ import json
 import logging
 import hashlib
 import os.path
-from urllib.request import urlopen
 from timeit import default_timer as timer
-from pprint import pprint
+import requests
 from jsonschema import validate
 from jsonschema.exceptions import ValidationError
 import xlrd
@@ -228,8 +227,6 @@ class ExcelResultFile:
                 value = dataset[column_key] if column_key in dataset else None
             columns.append(value)
 
-        pprint(columns)
-
         # write dataset row without resources
         if (config.skip_resources) or ('resources' not in dataset):
             self.add_plain_row(columns)
@@ -278,103 +275,12 @@ class ResourceStatus:
 
         return (int(resp[0]['status']) < 400), resp[0]['status']
 
-# JSON Schema of the dataset entries in endpoint "current_package_list_with_resources"
-datasetSchema = {
-    "type": "object",
-    "properties": {
-        "id": {"type": "string"},
-        "name": {"type": "string"},
-        "title": {"type": "string"},
-        "author": {"type": "string"},
-        "author_email": {"type": "string"}, # = "contact email"
-        "maintainer": {"type": "string"},           # useless
-        "maintainer_email": {"type": "string"},     # useless
-        "license_title": {"type": "string"},
-        "notes": {"type": "string"},        # = "description"
-        "url": {"type": "string"},
-        "state": {"type": "string"},
-        "log_message": {"type": "string"},          # ??
-        "private": {"type": "boolean"},             # ??
-        "revision_timestamp": {"type": "string"},
-        "metadata_created": {"type": "string"},
-        "metadata_modified": {"type": "string"},
-        "creator_user_id": {"type": "string"},
-        "type": {"type": "string"},                 # always "Dataset"
-        "resources": {
-            "type": "array",
-            "items": {
-                "type": "object",
-                "properties": {
-                    "id": {"type": "string"},
-                    "revision_id": {"type": "string"},
-                    "url": {"type": "string"},
-                    "description": {"type": "string"},
-                    "format": {"type": "string"},
-                    "state": {"type": "string"},
-                    "revision_timestamp": {"type": "string"},
-                    "name": {"type": "string"},
-                    "mimetype": {"type": "string"},
-                    "size": {"type": "string"},
-                    "created": {"type": "string"},
-                    "resource_group_id": {"type": "string"},
-                    "last_modified": {"type": "string"},
-                    # these are added by the check-script (see bottom of file)
-                    "response_ok": {"type": "string"},
-                    "response_code": {"type": "string"}
-                },
-                "required": [ "id", "revision_id", "name", "url" ]
-            }
-        },
-        "tags": {
-            "type": "array",
-            "items": {
-                "type": "object",
-                "properties": {
-                    "id": {"type": "string"},
-                    "vocabulary_id": {"type": "string"},
-                    "name": {"type": "string"}
-                },
-                "required": [ "id", "vocabulary_id", "name" ]
-            }
-        },
-        "groups": {
-            "type": "array",
-            "items": {
-                "type": "object",
-                "properties": {
-                    "id": {"type": "string"},
-                    "title": {"type": "string"}, # this is the value that we want
-                    "description": {"type": "string"},
-                    "name": {"type": "string"}
-                },
-                "required": [ "name", "title", "id" ]
-            }
-        },
-        "extras": {
-            "type": "array",
-            "items": {
-                "type": "object",
-                "properties": {
-                    "key": {"type": "string"},
-                    "value": {"type": "string"},
-                },
-                "required": [ "key", "value" ]
-            }
-        }
-    },
-    "required": [ "id", "name", "metadata_created", "type" ]
-}
-
-# TODO: JSON Schema for DKAN Nodes
-nodeSchema = {
-
-}
 
 def validateJson(jsonData, check_schema):
     try:
         validate(instance=jsonData, schema=check_schema)
     except ValidationError as err:
-        pprint(err)
+        logging.error("Fehler #5002: Ungültiges JSON Format: %s in %s / %s", err.message, err.schema_path, err.absolute_schema_path)
         return False
     return True
 
@@ -392,12 +298,13 @@ def read_remote_json_with_cache(remote_url, temp_file):
             logging.info('Using cached file "%s" ', temp_file)
         else:
             ti = timer()
-            f = urlopen(remote_url)
-            myfile = f.read()
-            logging.info('Reading remote url ({:.4f}): "{}"'.format(timer() - ti, remote_url))
+            r = requests.get(remote_url)
+            myfile = r.text
+
+            logging.info('{:.4f}s URL load: "{}"'.format(timer() - ti, remote_url))
 
             with open(temp_file, 'w') as fw:
-                fw.write(myfile.decode(config.api_encoding))
+                fw.write(myfile)
 
         with open(temp_file, 'r') as json_data:
             data = json.load(json_data)
@@ -423,6 +330,7 @@ def write(command_line_excel_filename):
     try:
         data = read_package_list_with_resources()
 
+        # print all config variables
         for item in dir(config):
             if not item.startswith("__"):
                 logging.debug("CONFIG %s", "{}: {}".format(item, getattr(config,item)))
@@ -452,13 +360,13 @@ def write(command_line_excel_filename):
         number = 0
         for dataset in data['result'][0]:
 
-            isValid = validateJson(dataset, datasetSchema)
+            isValid = validateJson(dataset, constants.datasetSchema)
             if not isValid:
-                pprint(dataset)
-                raise ValueError('Dataset format is not valid. Scroll up, see detailed error in line before pprint(dataset)')
+                raise ValueError('Dataset format is not valid. Scroll up, see detailed error above')
 
             dataset_id = dataset['id']
             if config.dataset_ids and (config.dataset_ids.find(dataset_id) == -1):
+                logging.debug("%s not in %s", dataset_id, config.dataset_ids)
                 continue
 
             if (not config.overwrite_rows) and (dataset_id in existing_dataset_ids):
@@ -482,10 +390,9 @@ def write(command_line_excel_filename):
                 if node_search[0]['nid']:
                     nid = node_search[0]['nid']
                     node_data = read_remote_json_with_cache(config.api_get_node_details.format(nid), '{}-complete.json'.format(dataset_id))
-                    isValid = validateJson(node_data, nodeSchema)
+                    isValid = validateJson(node_data, constants.nodeSchema)
                     if not isValid:
-                        pprint(dataset)
-                        raise ValueError('Dataset format is not valid. Scroll up, see detailed error in line before pprint(dataset)')
+                        raise ValueError('Dataset format is not valid. Scroll up, see detailed error above')
 
 
             # http-check dataset resources and add check result into nested resource list
