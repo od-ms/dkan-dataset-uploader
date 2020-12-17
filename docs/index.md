@@ -91,12 +91,14 @@ Die Bedienungsanleitung für den Kommandozeilenmodus und die unterschiedlichen v
 
 ## Liste der Fehlermeldungen
 
-* ```Fehler 5001```: Die DKAN-API hat nicht im JSON-Format geantwortet.\
-Häufig hat das einen der folgenden Gründe:
+* ```Fehler 5001```: *Die DKAN-API hat nicht im JSON-Format geantwortet.*\
+  Häufig hat das einen der folgenden Gründe:
   * Ein Eingabeparameter für die DKAN-API hat nicht das erwartete Format. \
   *Lösung:* Wenn dies beim Upload auftritt, sind eventuell  in der Excel-Datei nicht alle benötigten Spalten korrekt ausgefüllt. Füllen Sie alle Spalten aus.
   * Das API-Format hat sich geändert. Tritt z.B. auf, wenn Sie eine zu dieser Software inkompatible DKAN-Version nutzen. \
   *Lösung:* Prüfen Sie die Version der von Ihnen verwendete DKAN-Version und gleichen Sie diese mit der vom Programm unterstützten Version ab. Wenn die Versionen inkompatibel sind, lassen Sie diese Software auf die neuere DKAN-Version anpassen, oder passen Sie selbst den Programmcode an, der die API anspricht.
+* ```Fehler 5002```: *Die DKAN-API-Antwort hat ein unerwartetes JSON-Format.*\
+  Im DKAN-Updater-Quellcode sind JSON-Schemas hinterlegt, die die erwartete Antwort-Struktur der DKAN-API enthalten. Weicht die DKAN-API-Antwort davon ab, dann liegt das vermutlich daran, dass die von Ihnen verwendete DKAN-Version nicht kompatibel ist zu dieser Version des DKAN-Updater.
 
 ## Nicht unterstützte Datenfelder
 
@@ -107,3 +109,4 @@ Häufig hat das einen der folgenden Gründe:
 ## Bekannte, aber derzeit ungelöste Probleme
 
 * **Stichworte**: Es scheint über die DKAN-API für die "Stichworte" ("dataset_tags") **keine** Möglichkeit zu geben, eine Zuordnung zwischen IDs und Namen herauszufinden. Mit folgendem Link kann man zwar eine Liste der Stichworte bekommen, aber ohne IDs: https://opendata.stadt-muenster.de/autocomplete_deluxe/taxonomy/field_dataset_tags/%20/500?term=&synonyms=2 Da die API aber nur Stichwort-IDs zurück gibt, ist die Folge, dass man Stichworte in der Excel-Datei nur über IDs angeben kann.
+* **Unveröffentlichte Datensätze**: Der Daten-Download des DKAN-Uploader funktioniert nur mit **veröffentlichten** Datensätzen, da nur solche Datensätze über die CKAN API abgerufen werden können.
