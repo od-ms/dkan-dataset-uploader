@@ -20,14 +20,14 @@ def read_config_file():
     else:
         for section in config_ini.sections():
             logging.debug('config: %s %s', section, dict(config_ini[section]))
-        try: 
+        try:
             config.dkan_url = config_ini['dkan']['dkan_url']
             config.dkan_username = config_ini['dkan']['username']
             config.dkan_password = config_ini['dkan']['password']
             config.excel_filename = config_ini['excel']['filename']
             config.skip_resources = config_ini.getboolean('features','skip_resources')
             config.check_resources = config_ini.getboolean('features','check_resources')
-        except: 
+        except:
             logging.error("Beim Lesen der Config-Datei ist ein Fehler aufgetreten. Es wird mit der Standard-Config fortgefahren.")
 
 
@@ -66,6 +66,7 @@ def write_config_file():
 
     if config_new == config_old:
         logging.debug("Config values are unchanged. Not saving config.")
+        return False
 
     else:
         logging.debug('New configuration: %s', config_ini.sections())
@@ -73,4 +74,4 @@ def write_config_file():
 
         with open(CONFIG_FILENAME, 'w') as configfile:
             config_ini.write(configfile)
-
+        return True

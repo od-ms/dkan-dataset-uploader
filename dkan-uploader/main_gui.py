@@ -1,7 +1,9 @@
+import os
 import logging
 from tkinter import scrolledtext, Tk, Frame, Label, Checkbutton, Button, Entry, StringVar, Text, IntVar, PhotoImage ,\
-    DISABLED, SUNKEN, RIDGE, INSERT, NORMAL, END, N, S, W, E
+    HORIZONTAL, DISABLED, SUNKEN, RIDGE, INSERT, NORMAL, END, N, S, W, E
 from tkinter import ttk
+from datetime import datetime
 from . import config
 from . import excelreader
 from . import excelwriter
@@ -62,9 +64,9 @@ class MainGui(Frame):
         self.init_logging_textarea(window)
 
         window.title("DKAN Uploader")
-        logging.info("DKAN Uploader v0.11 (2020-11-18)")
+        logging.info("DKAN Uploader v0.12 (2020-12-18)")
         logging.info("================================")
-        logging.debug("Filename %s", config.excel_filename)
+        self.message_with_time('Programmstart')
 
         # -- Main layout --
         currentRow = 0
@@ -87,7 +89,7 @@ class MainGui(Frame):
         self.filename_input.delete(0, END)
         self.filename_input.insert(0, config.excel_filename)
         self.filename_input.grid(row=currentRow, column=1, columnspan=2, sticky=W+E, pady=(y_spacing, y_spacing))
-        self.filename_label = Label(master, text="Excel-Filename:")
+        self.filename_label = Label(master, text=_("Excel-Dateiname:"))
         self.filename_label.grid(row=currentRow, column=0, sticky=E, pady=(y_spacing, y_spacing))
 
         currentRow += 1
@@ -95,7 +97,7 @@ class MainGui(Frame):
         self.url_input.delete(0, END)
         self.url_input.insert(0, config.dkan_url)
         self.url_input.grid(row=currentRow, column=1, columnspan=2, sticky=W+E)
-        self.url_label = Label(master, text="DKAN-Url:")
+        self.url_label = Label(master, text=_("DKAN-Url:"))
         self.url_label.grid(row=currentRow, column=0, sticky=E)
 
         # DKAN credentials
@@ -110,20 +112,21 @@ class MainGui(Frame):
         self.password_input.insert(0, config.dkan_password)
         self.password_input.grid(row=currentRow, column=2, sticky=W+E)
 
-        self.cred_label = Label(master, text="User/Password:")
+        self.cred_label = Label(master, text=_("User/Password:"))
         self.cred_label.grid(row=currentRow, column=0, sticky=E)
 
-        # Action Buttons
+        # Test & Status button
         currentRow += 1
+        self.download_button = Button(master, text=_("Verbindungstest & Status"), command=self.action_status)
+        self.download_button.grid(row=currentRow, column=1, sticky=W+E, pady=(y_spacing, 0))
 
-        aktion_label = Label(master, text="Aktion:")
-        aktion_label.grid(row=currentRow, column=0, sticky=E, pady=(y_spacing, 0))
-        self.upload_button = Button(master, text="Excel -> DKAN", command=self.action_upload)
-        self.upload_button.grid(row=currentRow, column=1, sticky=W+E, pady=(y_spacing, 0))
-        self.download_button = Button(master, text="DKAN -> Excel", command=self.action_download)
-        self.download_button.grid(row=currentRow, column=2, sticky=W+E, pady=(y_spacing, 0))
+        ## -- Download section --
+        currentRow += 1
+        ttk.Separator(master, orient=HORIZONTAL).grid(column=0, row=currentRow, columnspan=3, sticky='we', pady=(20, 0))
+        currentRow += 1
+        aktion_label = Label(master, text=_("Lese Daten aus DKAN"), font=("Arial Bold", 11))
+        aktion_label.grid(row=currentRow, column=1, columnspan=2, sticky=W, pady=(10, 0))
 
-        # Checkboxes
         currentRow +=1
         Label(master, text="Optionen:").grid(row=currentRow, column=0, sticky=E, pady=(y_spacing, 0))
         self.skip_resources = IntVar()
@@ -133,16 +136,28 @@ class MainGui(Frame):
         self.check_resources = IntVar()
         Checkbutton(master, text = "Ressourcen beim Download überprüfen",variable = self.check_resources).grid(row=currentRow, column=1, columnspan=2,  sticky=W)
 
+        currentRow += 1
+        self.download_button = Button(master, text="DKAN -> Excel", command=self.action_download)
+        self.download_button.grid(row=currentRow, column=1, sticky=W+E, pady=(y_spacing, 0))
+
+        ## -- Upload section --
+        currentRow += 1
+        ttk.Separator(master, orient=HORIZONTAL).grid(column=0, row=currentRow, columnspan=3, sticky='we', pady=(20, 0))
+        currentRow += 1
+        aktion_label = Label(master, text=_("Schreibe Daten zum DKAN"), font=("Arial Bold", 11))
+        aktion_label.grid(row=currentRow, column=1, columnspan=2, sticky=W, pady=(10, 0))
+
+        currentRow += 1
+        self.upload_button = Button(master, text=_("Excel -> DKAN"), command=self.action_upload)
+        self.upload_button.grid(row=currentRow, column=1, sticky=W+E, pady=(y_spacing, 0))
+
+
         # Give all weight to an empty row at the bottom, so it will take all the space on window resize by user
         currentRow +=1
         self.empty_space = Label(master, text="")
         self.empty_space.grid(row=currentRow, column=0, sticky=E, pady=(y_spacing, 0))
         master.rowconfigure( currentRow, weight=1 )
 
-
-        self.check_resources.set(1)
-        logging.debug("value cr %s", self.check_resources.get() )
-        logging.debug("value sr %s", self.skip_resources.get() )
 
     def init_logging_textarea(self, window):
 
@@ -164,31 +179,65 @@ class MainGui(Frame):
         logger.addHandler(text_handler)
 
     def update_config(self):
+
         config.dkan_url = self.url_input.get()
         config.dkan_username = self.user_input.get()
         config.dkan_password = self.password_input.get()
         config.excel_filename = self.filename_input.get()
         config.check_resources = self.check_resources.get()
         config.skip_resources = self.skip_resources.get()
-        confighandler.write_config_file()
+        has_changed = confighandler.write_config_file()
+        if has_changed:
+            tempdir = config.x_temp_dir
+            logging.info(_("Konfiguration wurde geändert. Cacheverzeichnis wird geleert: %s"), tempdir)
+            for filename in os.listdir(tempdir):
+                file_path = os.path.join(tempdir, filename)
+                try:
+                    if (os.path.isfile(file_path) or os.path.islink(file_path)) and file_path.endswith('.json'):
+                        logging.debug(_("Lösche Datei '%s'"), file_path)
+                        os.unlink(file_path)
+                except Exception as e:
+                    logging.warning('Löschen fehlgeschlagen: %s. Grund: %s', file_path, e)
+
 
     def validate(self, new_text):
-        logging.debug("There could be a validation here")
+        # logging.debug("There could be a validation here")
         return True
 
     def action_download(self):
         self.update_config()
-        logging.debug("Starting Excelwriter module")
+        self.message_headline(_('Aktion: DKAN auslesen'))
         # self.download_button.configure(state=DISABLED)
         excelwriter.write(False)
         # self.download_button.configure(state=NORMAL)
 
+    def action_status(self):
+        self.message_headline(_('Aktion: Systemtest & Status'))
+        self.update_config()
+        excelwriter.test_and_status(False)
+
     def action_upload(self):
         self.update_config()
-        logging.debug("Starting Excelreader module")
-        self.upload_button.configure(state=DISABLED)
-        excelreader.read()
-        self.upload_button.configure(state=NORMAL)
+        self.message_headline(_('Aktion: DKAN schreiben'))
+        # self.upload_button.configure(state=DISABLED)
+        excelreader.read(False)
+        # self.upload_button.configure(state=NORMAL)
+
+    def message_headline(self, message):
+        self.message_with_time('Button-Interaktion')
+        size=30
+        logging.info("")
+        logging.info("#" * (size+4))
+        logging.info(_("# %s #"), message.center(size, ' '))
+        logging.info("#" * (size+4))
+        logging.info("")
+
+    def message_with_time(self, message):
+        now = datetime.now()
+        dt_string = now.strftime("%d.%m.%Y %H:%M:%S")
+        logging.info("")
+        logging.info("%s - %s", dt_string, message)
+
 
 
 def show():

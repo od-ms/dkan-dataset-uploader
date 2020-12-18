@@ -146,8 +146,24 @@ def get_column_config_dataset():
     #    => to get the missing details..
 
     #   TODO: Der Testdatensatz - da wurden alle Felder mit Daten gefüllt, aber nur teilweise sinnvoll.
-    #           "bevölkerungsindikatoren-soziales" - 3877be7b-5cc8-4d54-adfe-cca0f4368a13 - nodeid
+    #           "bevölkerungsindikatoren-soziales" - 3877be7b-5cc8-4d54-adfe-cca0f4368a13 - nodeid 40878
     #                                            ^ den nachher wieder richtig einstellen!
+    #
+    # API links
+    # ckan: https://opendata.stadt-muenster.de/api/3/action/package_show?id=3877be7b-5cc8-4d54-adfe-cca0f4368a13
+    # dkan: https://opendata.stadt-muenster.de/api/dataset/node/40878.json
+    #   dkan@fyii.de
+
+
+    # This config describes how the fields will be written from DKAN api response to the excel file.
+    #
+    # The config works like this:
+    # - key = column name in excel file
+    # - value is a "string" => name of this field will be read from current_package_list_with_resources
+    #                       @see
+    # - value is a list => this key will be read from dkan node.json
+    #                       @see https://opendata.stadt-muenster.de/api/dataset/node/41334.json
+    # - vaule is uppercase => check the code in excelwriter.py
 
     columns_config = {
         'Dataset-ID': "id",
@@ -158,7 +174,7 @@ def get_column_config_dataset():
         'Contact Name': ['field_contact_name', 'und', 0, 'value'],
         'Contact Email': "author_email",
         'Geographical Location': ['field_spatial_geographical_cover', 'und', 0, 'value'],
-        'Geographical Coverage Area': ['field_spatial_geographical_cover', 'und', 0, 'wkt'],
+        'Geographical Coverage Area': ['field_spatial', 'und', 0, 'wkt'],
         'License': "license_title",
         'Custom License': ['field_license', 'und', 0, 'value'],
         'Homepage URL': ['field_landing_page', 'und', 0, 'url'],
@@ -200,15 +216,23 @@ def get_column_config_dataset():
 
 
 def get_column_config_resource():
+    """ All columns of DKAN resources in our excel file"""
+
+    # TODO there are some more fields in the node json, do we need them?
+    # e.g. https://opendata.stadt-muenster.de/api/dataset/node/41153.json
+    # - field_datasetore_status
+    # - field_format (numeric format-tid)
+    # - more details about the resource type (API, remote file, upload ... )
+
     columns = {
-        'Lfd-Nr': 'lfd-nr',
+        'Lfd-Nr': 'lfd-nr', # specific for DKAN-Downloader
         'Resource-ID': 'id',
         'Resource-Name': 'name',
         'Format': 'format',
         'Externe Url': 'url',
         'Beschreibung': 'description',
-        'Prüfung OK?': 'response_ok',
-        'HTTP-Responsecode':'response_code'
+        'Prüfung OK?': 'response_ok', # specific for DKAN-Downloader
+        'HTTP-Responsecode':'response_code' # specific for DKAN-Downloader
     }
 
     return columns
@@ -254,7 +278,7 @@ datasetSchema = {
                     "created": {"type": "string"},
                     "resource_group_id": {"type": "string"},
                     "last_modified": {"type": "string"},
-                    # these are added by the check-script (see bottom of file)
+                    # these are added by the check-script (excelwriter.py)
                     "response_ok": {"type": "string"},
                     "response_code": {"type": "string"}
                 },
@@ -301,7 +325,7 @@ datasetSchema = {
     "required": [ "id", "name", "metadata_created", "type" ]
 }
 
-# JSON Schema for DKAN Nodes
+# JSON Schema for DKAN nodes
 #   = response of dkan-api-endpoint "/api/dataset/node/{}.json" (config.api_get_node_details)
 nodeSchema = {
     "type": "object",
@@ -500,3 +524,44 @@ nodeSchema = {
         }
     }
 }
+
+
+
+# DKAN data.json file format:
+# ---------------------------
+#                   ( wget https://dkan-url/data.json )
+"""
+ 'dataset': [{'@type': 'dcat:Dataset',
+    'accessLevel': 'public',
+    'contactPoint': {'fn': 'Open Data Koordination',
+                    'hasEmail': '...'},
+    'description': 'Am 30. Januar 2020 wurde die neue '
+                    'beschlossen. Das Wahlgebiet "Stadt Münster" für '
+    'distribution': [{'@type': 'dcat:Distribution',
+                    'accessURL': '...',
+                    'description': 'In dieser PDF-Datei ist die '
+                                    'Änderung der '
+                                    '2020 visuell dargestellt.',
+                    'format': 'pdf',
+                    'title': 'Übersicht der geänderten '
+                                'Wahlbezirke'},
+                    {'@type': 'dcat:Distribution',
+                    'accessURL': '...',
+                    'description': 'In dieser Shape-Datei sind die '
+                                    'aktuellen Kommunalwahlbezirke '
+                                    'verfügbar.',
+                    'format': 'shape',
+                    'title': 'Aktuelle Kommunalwahlbezirke 2020'}],
+    'identifier': '0e5931cf-9e8f-4ff0-afe3-54798a39d1bb',
+    'issued': '2020-08-25',
+    'keyword': ['Politik und Wahlen'],
+    'landingPage': '....',
+    'license': 'https://www.govdata.de/dl-de/by-2-0',
+    'modified': '2020-08-25',
+    'publisher': {'@type': 'org:Organization',
+                'name': 'Stadt '},
+    'spatial': 'POLYGON ((7.5290679931641 51.89293553285, '
+                '52.007625513725, 7.7350616455078 51.89293553285))',
+    'title': 'Änderungen der Wahlbezirke zur Kommunalwahl  '
+            '2020'},
+"""

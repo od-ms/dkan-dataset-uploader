@@ -14,7 +14,7 @@ import xlsxwriter
 import httplib2
 from . import config
 from . import constants
-
+from . import dkanhandler
 
 class AbortProgramError(RuntimeError):
     """ We create an own Error to catch on top level // better control of program flow """
@@ -174,9 +174,10 @@ class ExcelResultFile:
 
     def add_dataset(self, dataset, dkan_node):
         self.current_dataset_nr += 1
-        columns_config = self.get_column_config_dataset().values()
+        # get the config of which excel columns are mapped to which dkan json keys
+        columns_json_keys = self.get_column_config_dataset().values()
         columns = []
-        for column_key in columns_config:
+        for column_key in columns_json_keys:
             value = None
             if isinstance(column_key, list):
                 value = self.get_nested_json_value(dkan_node, column_key)
@@ -289,19 +290,19 @@ def read_remote_json_with_cache(remote_url, temp_file):
     """download a remote url to a temp directory first, then use it"""
 
     # prefix with tempdir and convert slashes to backslashes on windows
-    temp_file = os.path.normpath('temp/' + temp_file)
+    temp_file = os.path.normpath(config.x_temp_dir + temp_file)
     remote_url = config.dkan_url + remote_url
     data = None
 
     try:
         if os.path.isfile(temp_file):
-            logging.info('Using cached file "%s" ', temp_file)
+            logging.debug(_('Nutze Cachedatei "%s" '), temp_file)
         else:
             ti = timer()
             r = requests.get(remote_url)
             myfile = r.text
 
-            logging.info('{:.4f}s URL load: "{}"'.format(timer() - ti, remote_url))
+            logging.info(_('{:.4f}s URL load: "{}"').format(timer() - ti, remote_url))
 
             with open(temp_file, 'w') as fw:
                 fw.write(myfile)
@@ -385,11 +386,11 @@ def write(command_line_excel_filename):
             node_data = None
             # Sadly all the api endpoints with a list of datasets have missing data
             # That is why we have to make two extra calls per dataset.  .. maybe if there is another way..?
-            if config.download_extended_dataset_infos:
-                node_search = read_remote_json_with_cache(config.api_find_node_id.format(dataset_id), '{}.json'.format(dataset_id))
+            if config.x_download_extended_dataset_infos:
+                node_search = read_remote_json_with_cache(config.x_api_find_node_id.format(dataset_id), '{}.json'.format(dataset_id))
                 if node_search[0]['nid']:
                     nid = node_search[0]['nid']
-                    node_data = read_remote_json_with_cache(config.api_get_node_details.format(nid), '{}-complete.json'.format(dataset_id))
+                    node_data = read_remote_json_with_cache(config.x_api_get_node_details.format(nid), '{}-complete.json'.format(dataset_id))
                     isValid = validateJson(node_data, constants.nodeSchema)
                     if not isValid:
                         raise ValueError('Dataset format is not valid. Scroll up, see detailed error above')
@@ -416,41 +417,138 @@ def write(command_line_excel_filename):
         logging.error(err.message)
 
 
-# DKAN data.json file format:
-# ---------------------------
-#                   ( wget https://dkan-url/data.json )
-"""
- 'dataset': [{'@type': 'dcat:Dataset',
-    'accessLevel': 'public',
-    'contactPoint': {'fn': 'Open Data Koordination',
-                    'hasEmail': '...'},
-    'description': 'Am 30. Januar 2020 wurde die neue '
-                    'beschlossen. Das Wahlgebiet "Stadt Münster" für '
-    'distribution': [{'@type': 'dcat:Distribution',
-                    'accessURL': '...',
-                    'description': 'In dieser PDF-Datei ist die '
-                                    'Änderung der '
-                                    '2020 visuell dargestellt.',
-                    'format': 'pdf',
-                    'title': 'Übersicht der geänderten '
-                                'Wahlbezirke'},
-                    {'@type': 'dcat:Distribution',
-                    'accessURL': '...',
-                    'description': 'In dieser Shape-Datei sind die '
-                                    'aktuellen Kommunalwahlbezirke '
-                                    'verfügbar.',
-                    'format': 'shape',
-                    'title': 'Aktuelle Kommunalwahlbezirke 2020'}],
-    'identifier': '0e5931cf-9e8f-4ff0-afe3-54798a39d1bb',
-    'issued': '2020-08-25',
-    'keyword': ['Politik und Wahlen'],
-    'landingPage': '....',
-    'license': 'https://www.govdata.de/dl-de/by-2-0',
-    'modified': '2020-08-25',
-    'publisher': {'@type': 'org:Organization',
-                'name': 'Stadt '},
-    'spatial': 'POLYGON ((7.5290679931641 51.89293553285, '
-                '52.007625513725, 7.7350616455078 51.89293553285))',
-    'title': 'Änderungen der Wahlbezirke zur Kommunalwahl  '
-            '2020'},
-"""
+def test_and_status(command_line_excel_filename):
+    '''
+        A bunch of tests are performed to check if
+        - the dkan instance
+        - and the currently used file
+        are compatible to this version of dkan uploader
+    '''
+    # print all config variables
+    logging.info("")
+    logging.info(_("#######   Aktuelle Konfigurationseinstellungen  #######"))
+    for item in dir(config):
+        if not (item.startswith("__") or item.startswith("x_")):
+            if "password" in item:
+                logging.info(" - %s: ...", item)
+            else:
+                logging.info(" - %s: %s", item, getattr(config,item))
+
+    # print excel file infos
+    print_excel_status(command_line_excel_filename)
+
+    # iterate all datasets once to find all defined extras
+    data = read_package_list_with_resources()
+    extras = {}
+    nr_datasets = 0
+    first_dataset = None
+    for dataset in data['result'][0]:
+        if dataset['type'] != 'Dataset':
+            continue
+        nr_datasets += 1
+        if not first_dataset:
+            first_dataset = dataset
+        if "extras" in dataset:
+            for extra in dataset["extras"]:
+                keyName = extra["key"]
+                if keyName in extras:
+                    extras[keyName] = extras[keyName] + 1
+                else:
+                    extras[keyName] = 0
+
+    logging.info("")
+    logging.info(_("#######  Informationen zur DKAN-Instanz  #######"))
+    logging.info(_(" - Anzahl Datensätze: %s"), nr_datasets)
+    logging.info(_(" - Folgende 'additional-info'-Felder werden genutzt:"))
+    if extras:
+        for key, value in extras.items():
+            logging.info(_('     "%s" (%s mal)'), key, value)
+    else:
+        logging.info("     - keine - ")
+
+    if not first_dataset:
+        logging.error(_(" - Kein Dataset zum Testen gefunden! Statustest Abbruch."))
+    else:
+        dataset_id = first_dataset['id']
+        logging.info(_(" - Die folgende Tests werden ausgeführt mit Datensatz '%s' (%s)."), first_dataset['title'], dataset_id)
+
+        # check file format of one dataset
+        isValid1 = validateJson(first_dataset, constants.datasetSchema)
+        if not isValid1:
+            logging.warning(_(" - Unerwartete API-Response bei 'current_package_list_with_resources'"))
+        else:
+            logging.info(_(" - Keine Probleme bei API-Response 'current_package_list_with_resources'"))
+
+        node_data = None
+        # Sadly all the api endpoints with a list of datasets have missing data
+        # That is why we have to make two extra calls per dataset.  .. maybe if there is another way..?
+        node_search = read_remote_json_with_cache(config.x_api_find_node_id.format(dataset_id), '{}.json'.format(dataset_id))
+        if node_search[0]['nid']:
+            nid = node_search[0]['nid']
+            node_data = read_remote_json_with_cache(config.x_api_get_node_details.format(nid), '{}-complete.json'.format(dataset_id))
+            isValid2 = validateJson(node_data, constants.nodeSchema)
+            if not isValid2:
+                logging.warning(_(" - Unerwartete API-Response bei 'node.json'"))
+            else:
+                logging.info(_(" - Keine Probleme bei API-Response 'node.json'"))
+
+        if isValid1 and isValid2:
+            logging.info(_(" - DKAN Instanz scheint kompatibel zu sein"))
+        else:
+            logging.error(_(" - Fehler #5003 - Die DKAN Instanz ist nicht kompatibel zu DKAN-Uploader!"))
+
+    logging.info(_(" - Test der DKAN-Login-URL und -Benutzerdaten:"))
+    errormessage = dkanhandler.connect(config)
+    if errormessage:
+        logging.error(_('    Login fehlgeschlagen!'))
+        logging.error('    %s', errormessage)
+        logging.error(_('    Ist der DKAN-Server erreichbar?'))
+        logging.error(_('    Bitte prüfen Sie DKAN-URL, Benutzername und Password. %s, ...'), config.dkan_username)
+    else:
+        logging.info(_('    - Login erfogreich. - '))
+
+
+
+
+def print_excel_status(command_line_excel_filename):
+    excel_filename = command_line_excel_filename if command_line_excel_filename else config.excel_filename
+
+    logging.info("")
+    logging.info(_("#######  Informationen zur Excel-Datei  #######"))
+
+    dkan_dataset_fields = constants.get_column_config_dataset()
+    dkan_resource_fields = constants.get_column_config_resource()
+    dkan_fields = {**dkan_dataset_fields, **dkan_resource_fields}
+
+    logging.info(_(" Dateiname: %s"), excel_filename)
+    loc = (excel_filename)
+
+    try:
+        wb = xlrd.open_workbook(loc)
+    except FileNotFoundError:
+        logging.info(" Datei existiert noch nicht. ")
+        return
+
+    sheet = wb.sheet_by_index(0)
+    sheet.cell_value(0, 0)
+
+    used_fields = {}
+    columns = []
+    logging.info(_(" Datei hat %s Zeilen."), sheet.nrows)
+    logging.info(_(" Gefundene Spaltenüberschriften der Excel-Datei:"))
+    for i in range(sheet.ncols):
+
+        column_name = sheet.cell_value(0, i)
+        columns.append(column_name)
+
+        if column_name in dkan_fields:
+            used_fields[column_name] = 1
+            logging.info(" o %s", column_name)
+        elif column_name[:6] == "Extra-":
+            logging.info(_(" o %s => Zusätzliches Info-Feld"), column_name)
+        else:
+            logging.warning(_(" X %s => Kein passendes DKAN-Feld gefunden"), column_name)
+
+    for field in dkan_fields:
+        if not field in used_fields:
+            logging.warning(_(" > %s => DKAN Feld fehlt in Excel-Datei"), field)
