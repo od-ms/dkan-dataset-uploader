@@ -1,6 +1,5 @@
 #! /usr/bin/python
 
-import sys
 import logging
 import xlrd
 from .datasetuploader import DatasetUploader
@@ -64,14 +63,12 @@ class ExcelReader:
         self.parse_rows(sheet)
 
 
-
     def parse_rows(self, sheet):
 
         # TODO: datasetuploader expects to get the complete dataset + all its resources!
         # we need to read all the rows of the current dataset:
         # A) first row = the dataset + first resource
         # B) more rows for the other resources, until next dataset begins
-
 
         last_dataset = None
         resources = []
@@ -83,7 +80,7 @@ class ExcelReader:
                 column_name = self.columns_in_file[i]
                 row[column_name] = column_value
 
-            logging.debug("Zeile %s, row: %s", row_nr, row)
+            logging.debug("Zeile %s/%s", row_nr, sheet.nrows)
 
             dataset = constants.Dataset.create(row)
 
@@ -107,5 +104,3 @@ class ExcelReader:
         # create last dataset in file
         if last_dataset:
             self.datasetuploader.processDataset(last_dataset, resources)
-
-

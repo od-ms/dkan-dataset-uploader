@@ -1,3 +1,4 @@
+import re
 import logging
 
 class Resource:
@@ -21,17 +22,18 @@ class Resource:
         count_non_empty_dataset_fields = 0
         for column in get_column_config_resource():
             if column in row and row[column]:
+                logging.debug(" [r] %s", column)
                 count_non_empty_dataset_fields += 1
             else:
-                logging.debug("not found col: %s", column)
-        logging.info(_("Gefundende Datensatz-Felder: %s/%s"), count_non_empty_dataset_fields, len(get_column_config_resource()))
+                logging.debug("  -  %s", column)
+        logging.info(_(" Gefundende Ressource-Felder: %s/%s"), count_non_empty_dataset_fields, len(get_column_config_resource()))
 
         if count_non_empty_dataset_fields < 1:
             return None
 
         # Check if mandatory fields are set
         if not Resource.NAME in row:
-            logging.warning(_('PflichtFeld fehlt: %s'), Resource.NAME)
+            logging.warning(_(' PflichtFeld fehlt: %s'), Resource.NAME)
             return None
 
         return Resource(row)
@@ -92,11 +94,11 @@ class Dataset:
         count_non_empty_dataset_fields = 0
         for column in get_column_config_dataset():
             if column in row and row[column]:
-                logging.debug("found col: %s", column)
+                logging.debug(" [x] %s", column)
                 count_non_empty_dataset_fields += 1
             else:
-                logging.debug("not found col: %s", column)
-        logging.info(_("Gefundende Datensatz-Felder: %s/%s"), count_non_empty_dataset_fields, len(get_column_config_dataset()))
+                logging.debug("  -  %s", column)
+        logging.info(_(" Gefundende Datensatz-Felder: %s/%s"), count_non_empty_dataset_fields, len(get_column_config_dataset()))
         if count_non_empty_dataset_fields < 3:
             return None
 
@@ -107,7 +109,7 @@ class Dataset:
             ]
         for field in mandatory_fields:
             if not field in row:
-                logging.warning(_('Datensatz-PflichtFeld fehlt: %s'), field)
+                logging.warning(_(' Datensatz-Pflichtfeld fehlt: %s'), field)
                 return None
 
         new_object = Dataset(row)
@@ -126,8 +128,27 @@ class Dataset:
                 raise RuntimeError(_("DKAN-Spalte {} fehlt in Dataset class definition.").format(column))
 
 
-    def getValue(self, valueName):
-        return self._row[valueName]
+    def getRawValue(self, valueName, default=""):
+
+        value = None
+        if valueName in self._row:
+            value = self._row[valueName]
+        return value if value else default
+
+
+    def getValue(self, valueName, default=""):
+
+        if (valueName == Dataset.TAGS) or (valueName == Dataset.GROUPS) or (valueName == Dataset.KEYWORDS):
+            tags = self.getRawValue(valueName)
+            value = re.findall(r'"[^"]*"\s+\((\d+)\)', tags)
+            logging.debug("Found '%s' Ids: %s", valueName, value)
+
+        else:
+            value = self.getRawValue(valueName)
+
+        return value if value else default
+
+
 
     def __str__(self):
         return self._row[Dataset.TITLE]

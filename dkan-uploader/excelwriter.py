@@ -83,7 +83,7 @@ class ExcelResultFile:
 
                 old_excel_content.append(excelrow)
 
-                # save all dataset ids for later use (=lookup of existing ids)
+                # save all package_data ids for later use (=lookup of existing ids)
                 dataset_id = excelrow[0]
                 if dataset_id:
                     self.existing_dataset_ids[dataset_id] = True
@@ -155,9 +155,9 @@ class ExcelResultFile:
 
         # Some FIELDS ARE MISSING IN "current_package_list_with_resources"
         # How to get them? We have to query:
-        # 1. https://opendata.stadt-muenster.de/api/dataset/node.json?parameters[uuid]=29a3d573-98e1-412c-af0c-c356a07eff7b
+        # 1. https://opendata.stadt-muenster.de/api/package_data/node.json?parameters[uuid]=29a3d573-98e1-412c-af0c-c356a07eff7b
         #    => to get the node id
-        # 2. https://opendata.stadt-muenster.de/api/dataset/node/41334.json
+        # 2. https://opendata.stadt-muenster.de/api/package_data/node/41334.json
         #    => to get the missing details..
 
         columns = constants.get_column_config_dataset()
@@ -172,7 +172,7 @@ class ExcelResultFile:
         return constants.get_column_config_resource()
 
 
-    def add_dataset(self, dataset, dkan_node):
+    def convert_dkan_data_to_excel_row(self, package_data, dkan_node):
         self.current_dataset_nr += 1
         # get the config of which excel columns are mapped to which dkan json keys
         columns_json_keys = self.get_column_config_dataset().values()
@@ -181,18 +181,21 @@ class ExcelResultFile:
             value = None
             if isinstance(column_key, list):
                 value = self.get_nested_json_value(dkan_node, column_key)
-            elif (column_key[:6] == "EXTRA|") and ("extras" in dataset):
+            elif (column_key[:6] == "EXTRA|") and ("extras" in package_data):
                 extra_key = column_key[6:]
                 #logging.debug("searching extra key %s", extra_key)
-                extra_obj = [x for x in dataset["extras"] if x["key"] == extra_key]
+                extra_obj = [x for x in package_data["extras"] if x["key"] == extra_key]
                 value = extra_obj[0]["value"] if extra_obj else None
 
             elif column_key[:8] == "COLLECT|":
                 extra_key = column_key[8:]
-                if 'groups' in dataset:
+                if 'groups' in package_data:
                     groups = []
-                    for group in dataset['groups']:
-                        groups.append(group['title'])
+                    t_index = 0
+                    for group in package_data['groups']: # luckily groups are in same order in both api endpoints
+                        g_id = self.get_nested_json_value(dkan_node, ["og_group_ref", 'und', t_index, 'target_id'])
+                        groups.append('"{}" ({})'.format(group['title'].replace('"', "'"), g_id))
+                        t_index += 1
                     value = ", ".join(groups)
 
             elif column_key[:7] == "RELATED":
@@ -200,18 +203,17 @@ class ExcelResultFile:
                 for t_index in range(0,10):
                     rel = self.get_nested_json_value(dkan_node, ["field_related_content", 'und', t_index])
                     if rel:
-                        related_content.append('"{}" ({})'.format(rel['title'], rel['url']))
+                        related_content.append('"{}" ({})'.format(rel['title'].replace('"', "'"), rel['url']))
                     value = ", ".join(related_content)
 
             elif column_key[:10] == "CATEGORIES":
-                if 'tags' in dataset:
+                if 'tags' in package_data:
                     c_index = 0
                     categories = []
-                    # read category name from ckan_data and read category id from dkan_node
-                    # TODO: confirm that these are in the same order, otherwise this wont work at all
-                    for category in dataset['tags']:
+                    # read category name from ckan_data and read category id from dkan_node, they are in same order
+                    for category in package_data['tags']:
                         c_id = self.get_nested_json_value(dkan_node, ["field_tags", 'und', c_index, 'tid'])
-                        categories.append('"{}" ({})'.format(category['name'], c_id))
+                        categories.append('"{}" ({})'.format(category['name'].replace('"', "'"), c_id))
                         c_index += 1
                     value = ", ".join(categories)
 
@@ -221,20 +223,20 @@ class ExcelResultFile:
                 for t_index in range(0,10):
                     t_id = self.get_nested_json_value(dkan_node, ["field_dataset_tags", 'und', t_index, 'tid'])
                     if t_id:
-                        tags.append("({})".format(t_id))
+                        tags.append('"?" ({})'.format(t_id))
                     value = ", ".join(tags)
 
             else:
-                value = dataset[column_key] if column_key in dataset else None
+                value = package_data[column_key] if column_key in package_data else None
             columns.append(value)
 
-        # write dataset row without resources
-        if (config.skip_resources) or ('resources' not in dataset):
-            self.add_plain_row(columns)
+        # write package_data row without resources
+        if (config.skip_resources) or ('resources' not in package_data):
+            return columns
 
         # write resource rows
         else:
-            for resource_number, resource in enumerate(dataset['resources']):
+            for resource_number, resource in enumerate(package_data['resources']):
                 resource_row = []
                 if resource_number == 0:
                     resource_row = columns.copy()
@@ -255,17 +257,34 @@ class ExcelResultFile:
 
                     resource_row.extend([rc_value])
 
-                self.add_plain_row(resource_row)
+            return resource_row
+
+
+    def add_dataset(self, package_data, dkan_node):
+        row = self.convert_dkan_data_to_excel_row(package_data, dkan_node)
+        self.add_plain_row(row)
+
+
+    def convert_dkan_data_to_excel_row_hash(self, package_data, dkan_node):
+        ''' Create a dictionary with all the package_data information '''
+        resource_row = self.convert_dkan_data_to_excel_row(package_data, dkan_node)
+        resultarray = {}
+        count = 0
+        cols = {**self.get_column_config_dataset(), **self.get_column_config_resource()}
+        for kk in cols:
+            resultarray[kk] = resource_row[count]
+            count += 1
+        return resultarray
 
 
     def finish(self):
         self.workbook.close()
 
 
-class ResourceStatus:
+class DkanApiAccess:
     """Check status of a resource"""
 
-    def check(self, url):
+    def get_resource_http_status(self, url):
         try:
             htl = httplib2.Http(".cache", disable_ssl_certificate_validation=True)
             resp = htl.request(url, 'HEAD')
@@ -277,95 +296,139 @@ class ResourceStatus:
         return (int(resp[0]['status']) < 400), resp[0]['status']
 
 
-def validateJson(jsonData, check_schema):
-    try:
-        validate(instance=jsonData, schema=check_schema)
-    except ValidationError as err:
-        logging.error("Fehler #5002: Ungültiges JSON Format: %s in %s / %s", err.message, err.schema_path, err.absolute_schema_path)
-        return False
-    return True
+    def validateJson(self, jsonData, check_schema):
+        try:
+            validate(instance=jsonData, schema=check_schema)
+        except ValidationError as err:
+            logging.error("Fehler #5002: Ungültiges JSON Format: %s in %s / %s", err.message, err.schema_path, err.absolute_schema_path)
+            return False
+        return True
 
 
-def read_remote_json_with_cache(remote_url, temp_file):
-    """download a remote url to a temp directory first, then use it"""
+    def readDatasetNodeJson(self, package_id, node_id):
+        if not (node_id or package_id):
+            raise AbortProgramError(_('Node-ID oder Package-ID muss angegeben werden.').format(package_id))
 
-    # prefix with tempdir and convert slashes to backslashes on windows
-    temp_file = os.path.normpath(config.x_temp_dir + temp_file)
-    remote_url = config.dkan_url + remote_url
-    data = None
+        node_data = None
 
-    try:
-        if os.path.isfile(temp_file):
-            logging.debug(_('Nutze Cachedatei "%s" '), temp_file)
-        else:
-            ti = timer()
-            r = requests.get(remote_url)
-            myfile = r.text
+        if not node_id:
+            node_search = self.read_remote_json_with_cache(config.x_api_find_node_id.format(package_id), '{}.json'.format(package_id))
+            if node_search[0]['nid']:
+                node_id = node_search[0]['nid']
 
-            logging.info(_('{:.4f}s URL load: "{}"').format(timer() - ti, remote_url))
+        if not node_id:
+            raise AbortProgramError(_('Node-ID zu Package-ID {} fehlt oder konnte nicht gefunden werden.').format(package_id))
 
-            with open(temp_file, 'w') as fw:
-                fw.write(myfile)
+        node_data = self.read_remote_json_with_cache(config.x_api_get_node_details.format(node_id), '{}-complete.json'.format(package_id))
+        isValid = self.validateJson(node_data, constants.nodeSchema)
+        if not isValid:
+            raise ValueError('Dataset format is not valid. Scroll up, see detailed error above')
 
-        with open(temp_file, 'r') as json_data:
-            data = json.load(json_data)
-
-    except json.decoder.JSONDecodeError as err:
-        logging.debug("Fehlermeldung (beim Parsen der DKAN-API JSON-Daten): %s", err)
-        logging.error("Fehler 5001 beim Lesen der Eingabedaten. Cache Datei wird gelöscht.")
-        logging.error("Bitte versuchen Sie es erneut. Wenn das nicht hilft, prüfen Sie die Fehlermeldung (s.o.) und konsultieren Sie die Dokumentation.")
-        os.remove(temp_file)
-
-    return data
-
-def read_package_list_with_resources():
-    """Read all datasets and resources from DKAN portal
-        Or from local cache file if it exists
-    """
-    return read_remote_json_with_cache(config.api_resource_list,
-        'current_package_list_with_resources{}.json'.format( hashlib.md5(config.api_resource_list.encode()).hexdigest() )
-    )
+        return node_data
 
 
-def write(command_line_excel_filename):
-    try:
-        data = read_package_list_with_resources()
+    def read_remote_json_with_cache(self, remote_url, temp_file):
+        """download a remote url to a temp directory first, then use it"""
 
-        # print all config variables
+        # prefix with tempdir and convert slashes to backslashes on windows
+        temp_file = os.path.normpath(config.x_temp_dir + temp_file)
+        remote_url = config.dkan_url + remote_url
+        data = None
+
+        try:
+            if os.path.isfile(temp_file):
+                logging.debug(_('Nutze Cachedatei "%s" '), temp_file)
+            else:
+                ti = timer()
+                r = requests.get(remote_url)
+                myfile = r.text
+
+                logging.info(_('{:.4f}s URL load: "{}"').format(timer() - ti, remote_url))
+
+                with open(temp_file, 'w') as fw:
+                    fw.write(myfile)
+
+            with open(temp_file, 'r') as json_data:
+                data = json.load(json_data)
+
+        except json.decoder.JSONDecodeError as err:
+            logging.debug("Fehlermeldung (beim Parsen der DKAN-API JSON-Daten): %s", err)
+            logging.error("Fehler 5001 beim Lesen der Eingabedaten. Cache Datei wird gelöscht.")
+            logging.error("Bitte versuchen Sie es erneut. Wenn das nicht hilft, prüfen Sie die Fehlermeldung (s.o.) und konsultieren Sie die Dokumentation.")
+            os.remove(temp_file)
+
+        return data
+
+    def add_extras_from_package(self, extras, package_data):
+        if "extras" in package_data:
+            for extra in package_data["extras"]:
+                keyName = extra["key"]
+                if keyName in extras:
+                    extras[keyName] = extras[keyName] + 1
+                else:
+                    extras[keyName] = 0
+
+
+    def read_single_package(self, package_id):
+        return self.read_remote_json_with_cache(
+            config.api_package_details + package_id,
+            'package_details_{}.json'.format( package_id )
+            )
+
+
+    def read_package_list_with_resources(self):
+        """Read all datasets and resources from DKAN portal
+            Or from local cache file if it exists
+        """
+        return self.read_remote_json_with_cache(
+            config.api_resource_list,
+            'current_package_list_with_resources{}.json'.format( hashlib.md5(config.api_resource_list.encode()).hexdigest()
+            )
+        )
+
+
+class Dkan2Excel:
+    ''' Read from DKAN, write to excel file '''
+
+    def showConfigVars(self):
+        ''' print all config variables '''
         for item in dir(config):
             if not item.startswith("__"):
                 logging.debug("CONFIG %s", "{}: {}".format(item, getattr(config,item)))
 
 
-        # iterate all datasets once to find all defined extras
+    def read_all_extra_fields_from_dkan(self, dkanApi, data):
         extras = {}
-        for dataset in data['result'][0]:
-            if "extras" in dataset:
-                for extra in dataset["extras"]:
-                    keyName = extra["key"]
-                    if keyName in extras:
-                        extras[keyName] = extras[keyName] + 1
-                    else:
-                        extras[keyName] = 0
+        for package_data in data['result'][0]:
+            dkanApi.add_extras_from_package(extras, package_data)
+
         logging.info("All 'additional-info'-fields of DKAN response: %s", extras)
+        return extras
 
-        # initialize excel file
-        excel_output = ExcelResultFile(command_line_excel_filename if command_line_excel_filename else config.excel_filename, extras)
 
-        excel_output.initialize_new_excel_file_with_existing_content()
-        existing_dataset_ids = excel_output.get_existing_dataset_ids()
+    def run(self, command_line_excel_filename):
+        excel_filename = command_line_excel_filename if command_line_excel_filename else config.excel_filename
 
-        resource_status = ResourceStatus()
+        self.showConfigVars()
+
+        dkanApi = DkanApiAccess()
+        data = dkanApi.read_package_list_with_resources()
+        extra_columns = self.read_all_extra_fields_from_dkan(dkanApi, data)
+
+        excel_file = ExcelResultFile(excel_filename, extra_columns)
+        excel_file.initialize_new_excel_file_with_existing_content()
+
+        existing_dataset_ids = excel_file.get_existing_dataset_ids()
 
         # write all datasets and resources to excel file
         number = 0
-        for dataset in data['result'][0]:
+        for package_data in data['result'][0]:
 
-            isValid = validateJson(dataset, constants.datasetSchema)
+            isValid = dkanApi.validateJson(package_data, constants.datasetSchema)
             if not isValid:
                 raise ValueError('Dataset format is not valid. Scroll up, see detailed error above')
 
-            dataset_id = dataset['id']
+            dataset_id = package_data['id']
             if config.dataset_ids and (config.dataset_ids.find(dataset_id) == -1):
                 logging.debug("%s not in %s", dataset_id, config.dataset_ids)
                 continue
@@ -374,10 +437,11 @@ def write(command_line_excel_filename):
                 logging.debug("Already in Excel. Skipping %s", dataset_id)
                 continue
 
-            if dataset['type'] != 'Dataset':
+            if package_data['type'] != 'Dataset':
                 logging.debug("Item is not of type 'Dataset'. Skipping %s", dataset_id)
                 continue
 
+            # TODO: this should be removed
             number += 1
             if number == 3:
                 logging.debug("Stopping now")
@@ -385,36 +449,63 @@ def write(command_line_excel_filename):
 
             node_data = None
             # Sadly all the api endpoints with a list of datasets have missing data
-            # That is why we have to make two extra calls per dataset.  .. maybe if there is another way..?
+            # That is why we have to make two extra calls per package_data.  .. maybe there is another way..?
             if config.x_download_extended_dataset_infos:
-                node_search = read_remote_json_with_cache(config.x_api_find_node_id.format(dataset_id), '{}.json'.format(dataset_id))
-                if node_search[0]['nid']:
-                    nid = node_search[0]['nid']
-                    node_data = read_remote_json_with_cache(config.x_api_get_node_details.format(nid), '{}-complete.json'.format(dataset_id))
-                    isValid = validateJson(node_data, constants.nodeSchema)
-                    if not isValid:
-                        raise ValueError('Dataset format is not valid. Scroll up, see detailed error above')
+                node_data = dkanApi.readDatasetNodeJson(dataset_id, None)
 
-
-            # http-check dataset resources and add check result into nested resource list
-            if (not config.skip_resources) and ('resources' in dataset):
-                for index, resource in enumerate(dataset['resources']):
+            # http-check package_data resources and add check result into nested resource list
+            if (not config.skip_resources) and ('resources' in package_data):
+                for index, resource in enumerate(package_data['resources']):
                     if config.check_resources:
                         logging.debug("Check: %s", resource['url'])
-                        (ok, response_code) = resource_status.check(resource['url'])
+                        (ok, response_code) = dkanApi.get_resource_http_status(resource['url'])
                         logging.debug("Response: %s %s", ok, response_code)
                     else:
                         ok = response_code = None
-                    dataset['resources'][index]['response_ok'] = ok
-                    dataset['resources'][index]['response_code'] = response_code
+                    package_data['resources'][index]['response_ok'] = ok
+                    package_data['resources'][index]['response_code'] = response_code
 
-            excel_output.add_dataset(dataset, node_data)
+            excel_file.add_dataset(package_data, node_data)
+
+        excel_file.finish()
 
 
-        excel_output.finish()
+
+def write(command_line_excel_filename):
+    try:
+        main = Dkan2Excel()
+        main.run(command_line_excel_filename)
 
     except AbortProgramError as err:
         logging.error(err.message)
+
+
+def validate_single_dataset_row(source_row, source_node_id):
+    dkanApi = DkanApiAccess()
+
+    node_data = dkanApi.readDatasetNodeJson(None, source_node_id)
+    package_id = node_data['uuid']
+    package_data = dkanApi.read_single_package(package_id)
+
+    extra_columns = {}
+    dkanApi.add_extras_from_package(extra_columns, package_data)
+
+    excel_file = ExcelResultFile("dummy.xlsx", extra_columns)
+    result_row = excel_file.convert_dkan_data_to_excel_row_hash(package_data, node_data)
+
+    error_fields = {}
+    for key, value in source_row.items():
+        if not key in result_row:
+            error_fields[key] = 'fehlt'
+            logging.warning(' - "%s" fehlt', key)
+        elif result_row[key] != value:
+            error_fields[key] = 'Abweichung'
+            logging.warning(' x "%s" erwartet "%s", bekommen "%s"', key, value, result_row[key])
+        else:
+            logging.info(' o "%s" OK', key)
+
+    return error_fields
+
 
 
 def test_and_status(command_line_excel_filename):
@@ -438,23 +529,18 @@ def test_and_status(command_line_excel_filename):
     print_excel_status(command_line_excel_filename)
 
     # iterate all datasets once to find all defined extras
-    data = read_package_list_with_resources()
-    extras = {}
+    dkanApi = DkanApiAccess()
+    data = dkanApi.read_package_list_with_resources()
     nr_datasets = 0
     first_dataset = None
-    for dataset in data['result'][0]:
-        if dataset['type'] != 'Dataset':
+    extras = {}
+    for package_data in data['result'][0]:
+        if package_data['type'] != 'Dataset':
             continue
         nr_datasets += 1
         if not first_dataset:
-            first_dataset = dataset
-        if "extras" in dataset:
-            for extra in dataset["extras"]:
-                keyName = extra["key"]
-                if keyName in extras:
-                    extras[keyName] = extras[keyName] + 1
-                else:
-                    extras[keyName] = 0
+            first_dataset = package_data
+        dkanApi.add_extras_from_package(extras, package_data)
 
     logging.info("")
     logging.info(_("#######  Informationen zur DKAN-Instanz  #######"))
@@ -472,25 +558,21 @@ def test_and_status(command_line_excel_filename):
         dataset_id = first_dataset['id']
         logging.info(_(" - Die folgende Tests werden ausgeführt mit Datensatz '%s' (%s)."), first_dataset['title'], dataset_id)
 
-        # check file format of one dataset
-        isValid1 = validateJson(first_dataset, constants.datasetSchema)
+        # check the ckan-package-json response
+        isValid1 = dkanApi.validateJson(first_dataset, constants.datasetSchema)
         if not isValid1:
             logging.warning(_(" - Unerwartete API-Response bei 'current_package_list_with_resources'"))
         else:
             logging.info(_(" - Keine Probleme bei API-Response 'current_package_list_with_resources'"))
 
-        node_data = None
-        # Sadly all the api endpoints with a list of datasets have missing data
-        # That is why we have to make two extra calls per dataset.  .. maybe if there is another way..?
-        node_search = read_remote_json_with_cache(config.x_api_find_node_id.format(dataset_id), '{}.json'.format(dataset_id))
-        if node_search[0]['nid']:
-            nid = node_search[0]['nid']
-            node_data = read_remote_json_with_cache(config.x_api_get_node_details.format(nid), '{}-complete.json'.format(dataset_id))
-            isValid2 = validateJson(node_data, constants.nodeSchema)
-            if not isValid2:
-                logging.warning(_(" - Unerwartete API-Response bei 'node.json'"))
-            else:
-                logging.info(_(" - Keine Probleme bei API-Response 'node.json'"))
+        # check the node.json response
+        isValid2 = False
+        try:
+            dkanApi.readDatasetNodeJson(dataset_id, None)
+            logging.info(_(" - Keine Probleme bei API-Response 'node.json'"))
+            isValid2 = True
+        except ValueError:
+            logging.warning(_(" - Unerwartete API-Response bei 'node.json'"))
 
         if isValid1 and isValid2:
             logging.info(_(" - DKAN Instanz scheint kompatibel zu sein"))

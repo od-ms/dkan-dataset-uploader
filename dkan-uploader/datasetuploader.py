@@ -1,16 +1,10 @@
 
-
-from contextlib import closing
-import re
-import csv
-import sys
 import json
-import codecs
 import logging
 import requests
 from . import dkanhandler
 from . import config
-
+from .constants import Dataset
 
 class DatasetUploader:
     """ Handle creation of Excel content """
@@ -35,86 +29,63 @@ class DatasetUploader:
 
     def processDataset(self, dataset, resources):
 
+        if not dataset:
+            raise Exception(_("Fehler: Kein Datensatz zum Erstellen in datasetuploader.processDataset()"))
 
         logging.debug("dataset %s", dataset)
         logging.debug("resources %s", resources)
-        raise ValueError("Noch nicht fertigprogrammiert")
 
-        data = {}
-        resources = []
+        dkanhandler.connect(config)
 
-        # TODO 'Resource-ID': 'id',
-        # [x] 'Resource-Name': 'name',
-        # [x] 'Format': 'format',
-        # [x] 'Externe Url': 'url',
-        # [x] 'Description': 'description',
-        # 'Prüfung OK?': 'response_ok',
-        # 'HTTP-Responsecode':'response_code'
+        dataset_id = None
+        if dataset.getValue(Dataset.NODE_ID):
+            # update existing datasetlogging.error
+            dataset_id = dataset.getValue(Dataset.NODE_ID)
+            dkanhandler.update(dataset_id, dataset)
 
-        resources.append({
-            "type": self.getValue(dataset, 'Format'),
-            "url": self.getValue(dataset, 'Externe Url'),
-            "title": self.getValue(dataset, 'Resource-Name'),
-            "body": self.getValue(dataset, 'Description'),
-            "storage": '' # TODO: denkbar wäre z.B. a) remote / b) download to dkan / c) import into dkan datastore
-        })
+        elif dataset.getValue(Dataset.DATASET_ID):
+            # update by package_id
+            package_id = dataset.getValue(Dataset.DATASET_ID)
+            remote_url = config.x_api_find_node_id.format(package_id)
+            r = requests.get(remote_url)
+            node_search = json.load(r.text)
 
-        self.importer(data, resources)
-
-
-
-
-    def importer(self, data, resources):
-
-        try:
-            # Special feature: download external resources
-            # E.g. this can be used for "desc-external" => if this contains a url then "desc" is filled with the content from that url.
-            if 'storage':
-                logging.error("download of external resources to dkan is not implemented")
-
-
-
-
-                fieldName = hashkey[0:-9]
-                downloadUrl = data[hashkey]
-                print("Downloading external content for '" + fieldName + "':", downloadUrl)
-                r = requests.get(downloadUrl)
-                data[fieldName] = (data[fieldName] if fieldName in data else '') + r.text
-
-
-            if ('nid' in data) and data['nid']:
-                existingDataset = dkanhandler.getDatasetDetails(data['nid'])
+            if node_search[0]['nid']:
+                dataset_id = node_search[0]['nid']
+                dkanhandler.update(dataset_id, dataset)
             else:
-                existingDataset = dkanhandler.find(data['name'])
-            print()
-            print('-----------------------------------------------------')
-            print(data['name'], existingDataset['nid'] if existingDataset and 'nid' in existingDataset else ' => NEW')
-            if existingDataset:
-                nid = existingDataset['nid']
-                dkanhandler.update(nid, data)
-            else:
-                nid = dkanhandler.create(data)
+                logging.error("Datensatz mit der ID %s wurde nicht gefunden", package_id)
 
-            dataset = dkanhandler.getDatasetDetails(nid)
-            # print("RETRIEVED", dataset)
-            self.updateResources(dataset, resources)
-            datasets.append(nid)
+        else:
+            # create new dataset
+            dataset_id = dkanhandler.create(dataset)
+            logging.debug("NEW Dataset-ID: %s", dataset_id)
 
-        except:
-            print("data", json.dumps(data))
-            print("resources", resources)
-            print("existingDataset", existingDataset)
-            print("Unexpected error:", sys.exc_info())
-            raise
+        if not dataset_id:
+            raise Exception("Fehler beim Erstellen oder beim Update des Datensatzes")
+
+        # add or update resources
+        raw_dataset = dkanhandler.getDatasetDetails(dataset_id)
+        self.processResources(raw_dataset, resources)
+
+        return dataset_id
 
 
-    def updateResources(self, dataset, resourcesFromCsv):
-        if (('field_resources' in dataset) and ('und' in dataset['field_resources'])):
-            existingResources = dataset['field_resources']['und']
+    def processResources(self, raw_dataset, resources):
+
+        if (('field_resources' in raw_dataset) and ('und' in raw_dataset['field_resources'])):
+            existingResources = raw_dataset['field_resources']['und']
             if existingResources:
-                dkanhandler.updateResources(resourcesFromCsv, existingResources, dataset, ('force' in importOptions))
+
+                importOptions = {} # TODO .. das feature wieder einbauen
+                dkanhandler.updateResources(
+                    resources,
+                    existingResources,
+                    raw_dataset,
+                    ('force' in importOptions)
+                )
         else:
             # Create all resources
             for resource in resources:
-                dkanhandler.createResource(resource, dataset['nid'], dataset['title'])
+                dkanhandler.createResource(resource, raw_dataset['nid'], raw_dataset['title'])
 

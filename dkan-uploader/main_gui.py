@@ -8,6 +8,7 @@ from . import config
 from . import excelreader
 from . import excelwriter
 from . import confighandler
+from . import dkan_api_test
 
 class LoggingTextHandler(logging.Handler):
     """This class allows you to log to a Tkinter Text or ScrolledText widget"""
@@ -117,8 +118,10 @@ class MainGui(Frame):
 
         # Test & Status button
         currentRow += 1
-        self.download_button = Button(master, text=_("Verbindungstest & Status"), command=self.action_status)
-        self.download_button.grid(row=currentRow, column=1, sticky=W+E, pady=(y_spacing, 0))
+        self.status_button = Button(master, text=_("Verbindungstest & Status"), command=self.action_status)
+        self.status_button.grid(row=currentRow, column=1, sticky=W+E, pady=(y_spacing, 0))
+        self.test_button = Button(master, text=_("DKAN API Schreibtest"), command=self.action_test)
+        self.test_button.grid(row=currentRow, column=2, sticky=W+E, pady=(y_spacing, 0))
 
         ## -- Download section --
         currentRow += 1
@@ -215,6 +218,11 @@ class MainGui(Frame):
         self.message_headline(_('Aktion: Systemtest & Status'))
         self.update_config()
         excelwriter.test_and_status(False)
+
+    def action_test(self):
+        self.message_headline(_('Aktion: DKAN-API Schreibtest'))
+        self.update_config()
+        dkan_api_test.test()
 
     def action_upload(self):
         self.update_config()

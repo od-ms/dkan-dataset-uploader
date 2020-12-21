@@ -94,11 +94,16 @@ Die Bedienungsanleitung für den Kommandozeilenmodus und die unterschiedlichen v
 * ```Fehler 5001```: *Die DKAN-API hat nicht im JSON-Format geantwortet.*\
   Häufig hat das einen der folgenden Gründe:
   * Ein Eingabeparameter für die DKAN-API hat nicht das erwartete Format. \
-  *Lösung:* Wenn dies beim Upload auftritt, sind eventuell  in der Excel-Datei nicht alle benötigten Spalten korrekt ausgefüllt. Füllen Sie alle Spalten aus.
+  *Lösung:* Wenn dies beim Upload auftritt, sind eventuell in der Excel-Datei nicht alle benötigten Spalten korrekt ausgefüllt. Füllen Sie alle Spalten aus.
   * Das API-Format hat sich geändert. Tritt z.B. auf, wenn Sie eine zu dieser Software inkompatible DKAN-Version nutzen. \
   *Lösung:* Prüfen Sie die Version der von Ihnen verwendete DKAN-Version und gleichen Sie diese mit der vom Programm unterstützten Version ab. Wenn die Versionen inkompatibel sind, lassen Sie diese Software auf die neuere DKAN-Version anpassen, oder passen Sie selbst den Programmcode an, der die API anspricht.
+
 * ```Fehler 5002```: *Die DKAN-API-Antwort hat ein unerwartetes JSON-Format.*\
   Im DKAN-Updater-Quellcode sind JSON-Schemas hinterlegt, die die erwartete Antwort-Struktur der DKAN-API enthalten. Weicht die DKAN-API-Antwort davon ab, dann liegt das vermutlich daran, dass die von Ihnen verwendete DKAN-Version nicht kompatibel ist zu dieser Version des DKAN-Updater.
+
+* ```Fehler 5003```: *Die DKAN Instanz ist nicht kompatibel zu DKAN-Uploader*\
+  Bei der Überprüfung der DKAN-API-Datenformate wurde festgestellt, dass die von Ihnen genutzte DKAN-Instanz nicht kompatibel ist. *Lösung:* Kontaktieren Sie eine Person Ihres Vertrauens mit Python-Softwareentwicklungsexpertise, und bitten Sie diese Person, den Open-Source-Quellcode dieser Anwendung anzupassen.
+
 
 ## Nicht unterstützte Datenfelder
 

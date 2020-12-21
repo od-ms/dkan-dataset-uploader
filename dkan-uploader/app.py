@@ -4,11 +4,12 @@
 import argparse
 import textwrap
 import logging
+from . import config
+from . import main_gui
 from . import excelwriter
 from . import excelreader
-from . import main_gui
-from . import config
 from . import confighandler
+from . import dkan_api_test
 
 logging.basicConfig(level=logging.DEBUG, format='<%(asctime)s %(levelname)s> %(message)s')
 
@@ -32,6 +33,9 @@ class DkanUploader:
             excelwriter.write(args.filename)
         elif args.upload:
             excelreader.read(args.filename)
+        elif args.testwrite:
+            dkan_api_test.analyze()
+
         else:
             print("")
             print("Starting in GUI mode. To print available command line options, start with --help.")
@@ -68,6 +72,9 @@ class DkanUploader:
         # Command line arguments for UPLOAD
         parser.add_argument('-u', '--upload', action='store_true',
             help='Run in UPLOAD mode: The DKAN content will be overwritten with data from the excel file')
+
+        parser.add_argument('-wt', '--write-test', action='store_true', dest='testwrite',
+            help='Try to write a test-dataset to DKAN instance')
 
         args = parser.parse_args()
         logging.info("Command line arguments: %s", args)
