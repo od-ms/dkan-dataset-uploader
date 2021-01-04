@@ -111,6 +111,11 @@ Die Bedienungsanleitung für den Kommandozeilenmodus und die unterschiedlichen v
  * Harvest Source
  * Alle "Playground"-Felder
 
+## Felder, die gern Probleme machen
+
+* **Gruppen** => Wichtig! Existieren die Gruppen-IDs, auf die referenziert wird?
+
+
 ## Bekannte, aber derzeit ungelöste Probleme
 
 * **Stichworte**: Es scheint über die DKAN-API für die "Stichworte" ("dataset_tags") **keine** Möglichkeit zu geben, eine Zuordnung zwischen IDs und Namen herauszufinden. Mit folgendem Link kann man zwar eine Liste der Stichworte bekommen, aber ohne IDs: https://opendata.stadt-muenster.de/autocomplete_deluxe/taxonomy/field_dataset_tags/%20/500?term=&synonyms=2 Da die API aber nur Stichwort-IDs zurück gibt, ist die Folge, dass man Stichworte in der Excel-Datei nur über IDs angeben kann.

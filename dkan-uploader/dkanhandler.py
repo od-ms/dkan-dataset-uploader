@@ -7,6 +7,7 @@ import logging
 import requests
 from dkan.client import DatasetAPI, LoginError
 from .constants import Dataset, Resource
+from . import dkanhelpers
 
 api = None
 
@@ -53,7 +54,19 @@ def getDkanData(dataset: Dataset):
     if dataset.getRawValue(Dataset.TAGS):
         dkanData["field_tags"] ={"und": expand_into("tid", dataset.getValue(Dataset.TAGS))}
     if dataset.getRawValue(Dataset.GROUPS):
-        dkanData["og_group_ref"] ={"und": expand_into("target_id", dataset.getValue(Dataset.GROUPS))}
+        # check if the desired groups are really in the system, otherwise dkan will throw error
+        group_ids = dataset.getValue(Dataset.GROUPS)
+        groups = []
+        for group_name, group_id in group_ids:
+            group_data = dkanhelpers.HttpHelper.read_dkan_node(group_id)
+            if not (("type" in group_data) and (group_data['type'] == "group")):
+                logging.error("Datensatz kann nicht angelegt werden, weil die Gruppe nicht gefunden wurde: %s ('%s')", group_id, group_name)
+                raise RuntimeError("Unknown group " + group_id + " " + group_name)
+            if group_data['title'] != group_name:
+                logging.warning("Gruppenname %s weicht ab: '%s' != '%s'", group_id, group_name, group_data["title"])
+            groups.append({"target_id": group_id})
+        dkanData["og_group_ref"] ={"und": groups}
+
     if dataset.getValue(Dataset.FREQUENCY):
         dkanData["field_frequency"] = {"und": [{"value": dataset.getValue(Dataset.FREQUENCY)}]}
     # TEMPORAL ...
@@ -70,6 +83,7 @@ def getDkanData(dataset: Dataset):
         dkanData["field_language"] = {"und": [{"value": dataset.getValue(Dataset.LANG)}]}
     if dataset.getValue(Dataset.DATA_STANDARD):
         dkanData["field_conforms_to"] = {"und": [{"url": dataset.getValue(Dataset.DATA_STANDARD)}]}
+
     if dataset.getValue(Dataset.RELATED_CONTENT):
         logging.debug("Converting data structure of 'related content' field:")
         relatedcontent = dataset.getValue(Dataset.RELATED_CONTENT)

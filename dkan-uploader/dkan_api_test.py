@@ -52,7 +52,13 @@ class DkanApiTest:
         # remove keys from
         remove_keys = [
             'Geo', 'License', 'Temporal', 'Data ', 'Frequency', 'Granularity',
-            'Textformat', 'Tags', 'Groups', 'Language', 'Schlagworte', 'Public Access Level'
+            'Textformat', 'Tags'
+            ,'Language'
+            ,'Schlagworte'
+
+            # Fixed! These are working:
+            #,'Groups'
+            #,'Public Access Level'
             #,'Related Content'
             ]
         for remove_key in remove_keys:

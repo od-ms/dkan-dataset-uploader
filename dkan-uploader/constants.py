@@ -156,12 +156,17 @@ class Dataset:
 
     def getValue(self, valueName, default=""):
 
-        if (valueName == Dataset.TAGS) or (valueName == Dataset.GROUPS) or (valueName == Dataset.KEYWORDS):
+        if (valueName == Dataset.TAGS) or (valueName == Dataset.KEYWORDS):
             tags = self.getRawValue(valueName)
             value = re.findall(r'"[^"]*"\s+\((\d+)\)', tags)
             logging.debug("Found '%s' Ids: %s", valueName, value)
 
-        if (valueName == Dataset.RELATED_CONTENT):
+        elif valueName == Dataset.GROUPS:
+            tags = self.getRawValue(valueName)
+            value = re.findall(r'"([^"]*)"\s+\((\d+)\)', tags)
+            logging.debug("Found groups: %s", value)
+
+        elif valueName == Dataset.RELATED_CONTENT:
             tags = self.getRawValue(valueName)
             value = re.findall(r'"([^"]*)"\s+\(([^"]*)\)', tags)
             logging.debug("Found '%s' entries: %s", valueName, value)
@@ -181,6 +186,8 @@ class Dataset:
 def get_column_config_dataset():
     """ This contains the default configuration of a row"""
 
+    # How to get all..
+    #  - GROUPS: https://opendata.stadt-muenster.de/api/dataset/node.json?parameters[type]=group
 
     # Some FIELDS ARE MISSING IN "current_package_list_with_resources"
     # How to get them? We have to query:
