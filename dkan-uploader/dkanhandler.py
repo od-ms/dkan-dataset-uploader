@@ -1,39 +1,99 @@
 """Module to handle DKAN API calls"""
 import re
 import os
+import json
 import hashlib
-import requests
 import logging
+import requests
 from dkan.client import DatasetAPI, LoginError
+from .constants import Dataset, Resource
 
 api = None
 
+def expand_into(varname, id_list):
+    result = []
+    for single_id in id_list:
+        result.append({varname: single_id})
+    return result
 
-def getDkanData(data):
+def getDkanData(dataset: Dataset):
     """Generate default data for DKAN Datasets"""
-    if not(data['name'] and data['desc'] and data['tags']):
-        raise Exception('Missing data entry', data)
 
     # if description does not contain html, then add html linebreaks
-    description = data['desc']
+    description = dataset.getValue(Dataset.DESCRIPTION)
     if ('\n' in description) and '<' not in description:
         description = description.replace('\n', '<br />')
 
-    if (not data['tags'].isnumeric()):
-        raise Exception('Aufgrund DKAN API Änderungen müssen Tags derzeit als IDs angegeben werden', data)
-
     dkanData = {
         "type": "dataset",
-        "title": data['name'],
+        "title": dataset.getValue(Dataset.TITLE),
         "body": {"und": [{
             "value": description,
-            "format": "full_html"  # plain_text, full_html, ...
-        }]},
-        "field_author": {"und": [{"value": "Stadt "}]},
-        "field_contact_email": {"und": [{"value": "opendata@stadt"}]},
-        "field_contact_name": {"und": [{"value": "Open Data Koordination der Stadt"}]},
-        "og_group_ref": {"und": [{"target_id": 40612}]},
-        "field_spatial_geographical_cover": {"und": [{"value": "somewhere"}]},
+            "format": dataset.getValue(Dataset.TEXT_FORMAT, "full_html")   # plain_text, full_html, ...
+        }]}
+    }
+
+    if dataset.getValue(Dataset.AUTHOR):
+        dkanData["field_author"] = {"und": [{"value": dataset.getValue(Dataset.AUTHOR)}]}
+    if dataset.getValue(Dataset.CONTACT_EMAIL):
+        dkanData["field_contact_email"] = {"und": [{"value": dataset.getValue(Dataset.CONTACT_EMAIL)}]}
+    if dataset.getValue(Dataset.CONTACT_NAME):
+        dkanData["field_contact_name"]= {"und": [{"value": dataset.getValue(Dataset.CONTACT_NAME)}]}
+    if dataset.getValue(Dataset.GEO_LOCATION):
+        dkanData["field_spatial_geographical_cover"]= {"und": [{"value": dataset.getValue(Dataset.GEO_LOCATION)}]}
+    if dataset.getValue(Dataset.GEO_AREA):
+        dkanData["field_spatial"] = {"und":[{"wkt":dataset.getValue(Dataset.GEO_AREA)}]}
+    # LICENS
+    # LICENSE_CUSTOM
+    # [x] DESCRIPTION s.o.
+    # [x] TEXT_FORMAT s.o.
+    # URL ?
+    if dataset.getValue(Dataset.HOMEPAGE):
+        dkanData["field_landing_page"] = {"und": [{"url": dataset.getValue(Dataset.HOMEPAGE)}]}
+    if dataset.getRawValue(Dataset.TAGS):
+        dkanData["field_tags"] ={"und": expand_into("tid", dataset.getValue(Dataset.TAGS))}
+    if dataset.getRawValue(Dataset.GROUPS):
+        dkanData["og_group_ref"] ={"und": expand_into("target_id", dataset.getValue(Dataset.GROUPS))}
+    if dataset.getValue(Dataset.FREQUENCY):
+        dkanData["field_frequency"] = {"und": [{"value": dataset.getValue(Dataset.FREQUENCY)}]}
+    # TEMPORAL ...
+
+    if dataset.getValue(Dataset.GRANULARITY):
+        dkanData["field_granularity"] = {"und": [{"value": dataset.getValue(Dataset.GRANULARITY)}]}
+    if dataset.getValue(Dataset.DATA_DICT_TYPE):
+        dkanData["field_data_dictionary_type"] = {"und": [{"value": dataset.getValue(Dataset.DATA_DICT_TYPE)}]}
+    if dataset.getValue(Dataset.DATA_DICT):
+        dkanData["field_data_dictionary"] = {"und": [{"value": dataset.getValue(Dataset.DATA_DICT)}]}
+    if dataset.getValue(Dataset.PUBLIC_ACCESS_LEVEL):
+        dkanData["field_public_access_level"] = {"und": [{"value": dataset.getValue(Dataset.PUBLIC_ACCESS_LEVEL)}]}
+    if dataset.getValue(Dataset.LANG):
+        dkanData["field_language"] = {"und": [{"value": dataset.getValue(Dataset.LANG)}]}
+    if dataset.getValue(Dataset.DATA_STANDARD):
+        dkanData["field_conforms_to"] = {"und": [{"url": dataset.getValue(Dataset.DATA_STANDARD)}]}
+    if dataset.getValue(Dataset.RELATED_CONTENT):
+        logging.debug("Converting data structure of 'related content' field:")
+        relatedcontent = dataset.getValue(Dataset.RELATED_CONTENT)
+        print(json.dumps(relatedcontent, indent=2))
+        related_list = []
+        for related_entry in relatedcontent:
+            related_list.append({
+                "title": related_entry[0],
+                "url": related_entry[1],
+                "attributes": []
+                })
+        dkanData["field_related_content"] = {"und": related_list}
+        print(json.dumps(dkanData["field_related_content"], indent=2))
+
+    # STATE = 'State'
+    # DATE_CREATED = 'Created'
+    # DATE_MODIFIED = 'Modified'
+
+
+    if dataset.getRawValue(Dataset.KEYWORDS):
+        dkanData["field_dataset_tags"] ={"und": expand_into("tid", dataset.getValue(Dataset.KEYWORDS))}
+
+
+
         # "field_granularity": {"und": [{"value": "longitude/latitude"}]},
 
         # list of api fields in dkan dokumentation:
@@ -51,69 +111,32 @@ def getDkanData(data):
         # doesnt work: dL-de, dl-de/2.0
         # example: https://opendata.stadt-.de/api/dataset/node/41344.json
         # LICENSE list: https://github.com/GetDKAN/dkan/blob/7.x-1.x/modules/dkan/dkan_dataset/modules/dkan_dataset_content_types/dkan_dataset_content_types.license_field.inc#L64
-        "field_license": {"und": [{
-            "value": "cc-by"
-            # DOESNT HELP: "safe_value": "cc-zeroo" #"Datenlizenz Deutschland – Namensnennung – Version 2.0"
-        }]},
-
-        # working example for spatial (2020-09-22)
-        "field_spatial":{"und":[{"wkt":"POLYGON ((7.5290679931641 51.89293553285, 7.5290679931641 52.007625513725, 7.7350616455078 52.007625513725, 7.7350616455078 51.89293553285))","geo_type":"polygon","lat":"51.9503","lon":"7.63206","left":"7.52907","top":"52.0076","right":"7.73506","bottom":"51.8929","srid":"","accuracy":"","source":""}]},
+        #"field_license": {"und": [{
+        #    "value": "cc-by"
+        #    # DOESNT HELP: "safe_value": "cc-zeroo" #"Datenlizenz Deutschland – Namensnennung – Version 2.0"
+        #}]},
 
         # working example for tags (2020-09-22):
         # find tags ids on this page: https://opendata.stadt-.de/admin/structure/taxonomy/tags
-        "field_tags":{"und": [{"tid": data['tags']}] }
-    }
 
-    groupData = {
-        #...
-    }
-
-    # TODO groups muss repariert werden
-    if ("group" in data) and data["group"]:
-        if not data["group"] in groupData:
-            raise Exception("groupData not found for group. Please define the following group in dkanhandler.py:", data["group"])
-        dkanData.update(groupData[data["group"]])
-
-    if "homepage" in data:
-        dkanData["field_landing_page"] = {
-            "und": [{"url": data["homepage"]}]
-        }
-
-    if "start" in data:
+    if False and ("start" in dkanData):
         dkanData["field_temporal_coverage"] = {
             "und": [{
                 "value": {
                     "time": "00:00:00",
-                    "date": data["start"]  # "MM/DD/YYYY"
+                    "date": dkanData["start"]  # "MM/DD/YYYY"
                 }
             }]
         }
 
-    if "end" in data:
-        # field_temporal_coverage%5Bund%5D%5B0%5D%5Bshow_todate%5D: 1
-        # field_temporal_coverage%5Bund%5D%5B0%5D%5Bvalue2%5D%5Bdate%5D: 11%2F13%2F2019
-        # field_temporal_coverage%5Bund%5D%5B0%5D%5Bvalue2%5D%5Btime%5D: 00%3A00%3A00
-        print("ENDDATE NOT IMPLEMENTED")
+    #fieldWeight = 0
+    #additionalFields = [
+    #    {"first": "Kennziffer", "second": data['id'], "_weight": fieldWeight}
+    #]
 
-    if "frequency" in data:
-        dkanData["field_frequency"] = {
-            "und": data["frequency"]
-        }
-
-    fieldWeight = 0
-    additionalFields = [
-        {"first": "Kennziffer", "second": data['id'], "_weight": fieldWeight}
-    ]
-
-    if "musterds" in data:
-        fieldWeight += 1
-        additionalFields.append({"first": "Kategorie", "second": data['musterds'], "_weight": fieldWeight})
-    if "Koordinatenreferenzsystem" in data:
-        fieldWeight += 1
-        additionalFields.append({"first": "Koordinatenreferenzsystem", "second": data['Koordinatenreferenzsystem'], "_weight": fieldWeight})
-    if "Quelle" in data:
-        fieldWeight += 1
-        additionalFields.append({"first": "Quelle", "second": data['Quelle'], "_weight": fieldWeight})
+    #if "musterds" in data:
+    #    fieldWeight += 1
+    #    additionalFields.append({"first": "Kategorie", "second": data['musterds'], "_weight": fieldWeight})
 
     # TODO: These are broken, check the changes in API and fix it
     # dkanData["field_additional_info"] = {"und": additionalFields}
@@ -123,8 +146,11 @@ def getDkanData(data):
 
 def connect(args):
     global api
-    logging.debug("DKAN url: %s", args.dkan_url)
+    if api:
+        return ""
+
     try:
+        logging.debug("DKAN url: %s", args.dkan_url)
         # Last parameter is debug mode: True = Debugging ON
         api = DatasetAPI(args.dkan_url, args.dkan_username, args.dkan_password, True)
         return ""
@@ -133,21 +159,27 @@ def connect(args):
 
 
 
-def create(data):
+def create(data: Dataset):
     global api
-    print("Creating", data['name'])
+    logging.info(_("Erstelle DKAN-Datensatz: %s"), data)
     res = api.node('create', data=getDkanData(data))
-    print("result", res.text)
-    return res.json()['nid']
+    logging.debug("result %s", res.text)
+    json = res.json()
+    if not 'nid' in json:
+        logging.error(_('DKAN-Fehler beim Erstellen des Datensatzes:'))
+        logging.error(_('Fehlermeldung: %s'), json)
+        return None
+    else:
+        return json['nid']
 
     # BEKANNTE FEHLER
     # - "Fehler bei der Eingabe\u00fcberpr\u00fcfung des Feldes"
     #   => DKAN API hat ein Problem mit den Eingabedaten. Wahrscheinlich hat sich das Input-Json-Format geändert.
 
 
-def update(nodeId, data):
+def update(nodeId, data: Dataset):
     global api
-    print("Updating", data['name'])
+    logging.info(_("Datensatz-Update: '%s'"), data)
     res = api.node('update', node_id=nodeId, data=getDkanData(data))
     print("result", res.json())
 
@@ -174,6 +206,23 @@ def getDatasetDetails(nid):
 def getResourceDkanData(resource, nid, title):
     """Return Base data for RESOURCE URLS"""
     isUpload = False
+
+    if isinstance(resource, Resource):
+
+        # TODO 'Resource-ID': 'id',
+        # [x] 'Resource-Name': 'name',
+        # [x] 'Format': 'format',
+        # [x] 'Externe Url': 'url',
+        # [x] 'Description': 'description',
+        # 'Prüfung OK?': 'response_ok',
+        # 'HTTP-Responsecode':'response_code'
+        resource = {
+            "type": resource.getValue(Resource.FORMAT),
+            "url": resource.getValue(Resource.URL),
+            "title": resource.getValue(Resource.NAME),
+            "body": resource.getValue(Resource.DESCRIPTION),
+            "storage": '' # TODO: denkbar wäre z.B. a) remote / b) download to dkan / c) import into dkan datastore
+        }
 
 
     rFormat = resource['type']
@@ -251,7 +300,7 @@ def getResourceDkanData(resource, nid, title):
     return rData
 
 
-def createResource(resource, nid, title):
+def createResource(resource: Resource, nid, title):
     data = getResourceDkanData(resource, nid, title)
     createResourceFromData(data)
 

@@ -35,6 +35,8 @@ class DkanUploader:
             excelreader.read(args.filename)
         elif args.testwrite:
             dkan_api_test.analyze()
+        elif args.node_id:
+            dkan_api_test.validate(args.node_id)
 
         else:
             print("")
@@ -75,6 +77,9 @@ class DkanUploader:
 
         parser.add_argument('-wt', '--write-test', action='store_true', dest='testwrite',
             help='Try to write a test-dataset to DKAN instance')
+        parser.add_argument('-vn', '--validate-node-id', action='store', dest='node_id',
+            help='Validate node with the given ID')
+
 
         args = parser.parse_args()
         logging.info("Command line arguments: %s", args)

@@ -247,8 +247,23 @@ class ExcelResultFile:
                 rcolumns_config = self.get_column_config_resource().values()
                 for rc_key in rcolumns_config:
                     rc_value = ""
+                    if isinstance(rc_key, list):
+                        raise AbortProgramError(_('Anruf von Resource-Node-Daten ist noch nicht implementiert.'))
+
                     if rc_key == 'lfd-nr':
                         rc_value = str(self.current_dataset_nr) + '-' + str(resource_number+1)
+
+                    elif rc_key == 'RTYPE':
+                        rc_value = 'url'
+                        url_keyname = self.get_column_config_resource()[constants.Resource.URL]
+                        if isinstance(url_keyname, list):
+                            raise AbortProgramError(_('Anruf von Resource-Node-Daten ist noch nicht implementiert.'))
+                        if (url_keyname in resource):
+                            if resource[url_keyname].find(config.x_uploaded_resource_path) != -1:
+                                rc_value = 'uploaded'
+                            elif resource[url_keyname].find(config.x_uploaded_datastore_path) != -1:
+                                rc_value = 'datastore'
+
                     else:
                         try:
                             rc_value = resource[rc_key]
@@ -271,9 +286,12 @@ class ExcelResultFile:
         resultarray = {}
         count = 0
         cols = {**self.get_column_config_dataset(), **self.get_column_config_resource()}
-        for kk in cols:
-            resultarray[kk] = resource_row[count]
-            count += 1
+        try:
+            for kk in cols:
+                resultarray[kk] = resource_row[count]
+                count += 1
+        except IndexError as ie:
+            logging.error("Resource row does not have a column %s (%s)", count, kk)
         return resultarray
 
 
@@ -319,9 +337,10 @@ class DkanApiAccess:
         if not node_id:
             raise AbortProgramError(_('Node-ID zu Package-ID {} fehlt oder konnte nicht gefunden werden.').format(package_id))
 
-        node_data = self.read_remote_json_with_cache(config.x_api_get_node_details.format(node_id), '{}-complete.json'.format(package_id))
+        node_data = self.read_remote_json_with_cache(config.x_api_get_node_details.format(node_id), '{}-complete.json'.format(node_id))
         isValid = self.validateJson(node_data, constants.nodeSchema)
         if not isValid:
+            print(json.dumps(node_data, indent=2))
             raise ValueError('Dataset format is not valid. Scroll up, see detailed error above')
 
         return node_data
@@ -370,10 +389,11 @@ class DkanApiAccess:
 
 
     def read_single_package(self, package_id):
-        return self.read_remote_json_with_cache(
+        result = self.read_remote_json_with_cache(
             config.api_package_details + package_id,
             'package_details_{}.json'.format( package_id )
             )
+        return result["result"][0]
 
 
     def read_package_list_with_resources(self):
@@ -481,19 +501,31 @@ def write(command_line_excel_filename):
 
 
 def validate_single_dataset_row(source_row, source_node_id):
+    logging.debug("validate single dataset row")
     dkanApi = DkanApiAccess()
 
     node_data = dkanApi.readDatasetNodeJson(None, source_node_id)
     package_id = node_data['uuid']
+    logging.info("Checking package id %s", package_id)
     package_data = dkanApi.read_single_package(package_id)
 
     extra_columns = {}
     dkanApi.add_extras_from_package(extra_columns, package_data)
 
+    logging.info(" == Package data == ")
+    print(json.dumps(package_data, indent=2))
+
     excel_file = ExcelResultFile("dummy.xlsx", extra_columns)
     result_row = excel_file.convert_dkan_data_to_excel_row_hash(package_data, node_data)
 
     error_fields = {}
+
+    logging.info(" == Source row == ")
+    print(json.dumps(source_row, indent=2))
+    logging.info(" == Result row == ")
+    print(json.dumps(result_row, indent=2))
+
+
     for key, value in source_row.items():
         if not key in result_row:
             error_fields[key] = 'fehlt'

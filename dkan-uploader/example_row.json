@@ -36,7 +36,8 @@
     "Resource-ID": "631e0a43-e8c1-49dc-99ac-6d6f5a21b7f7",
     "Resource-Name": "Bev\u00f6lkerungsindikatoren - Soziales - CSV",
     "Format": "csv",
-    "Externe Url": "https://opendata.stadt-muenster.de/sites/default/files/05515000_csv_indikatoren_sozial.csv",
+    "Resource-Typ": "uploaded",
+    "Resource-Url": "https://opendata.stadt-muenster.de/sites/default/files/05515000_csv_indikatoren_sozial.csv",
     "Beschreibung": "CSV Datei mit den sozialen Bev\u00f6lkerungsindikatoren",
     "Pr\u00fcfung OK?": null,
     "HTTP-Responsecode": null

@@ -7,8 +7,14 @@ class Resource:
     RESOURCE_ID = 'Resource-ID'
     NAME = 'Resource-Name'
     FORMAT = 'Format'
-    DESCRIPTION = 'Description'
-    URL = 'Externe Url'
+    DESCRIPTION = 'Beschreibung'
+    URL = 'Resource-Url'
+    TYP = 'Resource-Typ'
+
+    # we dont write these to DKAN, they are only in the Excel file:
+    HTTP_CODE = 'HTTP-Responsecode'
+    HTTP_OK = 'Prüfung OK?'
+    LFD_NR = 'Lfd-nr'
 
     _row = {}
 
@@ -45,6 +51,18 @@ class Resource:
         return self._row[Resource.NAME]
     def __str__(self):
         return self._row[Resource.NAME]
+
+    @staticmethod
+    def verify():
+        ''' Internal test: check if our class definition is correct '''
+        members = [getattr(Resource, attr) for attr in dir(Resource) if not callable(getattr(Resource, attr)) and not attr.startswith("_")]
+        known_columns = get_column_config_resource()
+        for member in members:
+            if not member in known_columns:
+                raise RuntimeError(_('Programmierfehler: Dataset-Objekt nutzt eine Spalte "{}" die es garnicht gibt.').format(member))
+        for column in known_columns:
+            if not column in members:
+                raise RuntimeError(_("DKAN-Spalte {} fehlt in Dataset class definition.").format(column))
 
 
 class Dataset:
@@ -143,6 +161,11 @@ class Dataset:
             value = re.findall(r'"[^"]*"\s+\((\d+)\)', tags)
             logging.debug("Found '%s' Ids: %s", valueName, value)
 
+        if (valueName == Dataset.RELATED_CONTENT):
+            tags = self.getRawValue(valueName)
+            value = re.findall(r'"([^"]*)"\s+\(([^"]*)\)', tags)
+            logging.debug("Found '%s' entries: %s", valueName, value)
+
         else:
             value = self.getRawValue(valueName)
 
@@ -173,8 +196,6 @@ def get_column_config_dataset():
     # API links
     # ckan: https://opendata.stadt-muenster.de/api/3/action/package_show?id=3877be7b-5cc8-4d54-adfe-cca0f4368a13
     # dkan: https://opendata.stadt-muenster.de/api/dataset/node/40878.json
-    #   dkan@fyii.de
-
 
     # This config describes how the fields will be written from DKAN api response to the excel file.
     #
@@ -243,17 +264,29 @@ def get_column_config_resource():
     # e.g. https://opendata.stadt-muenster.de/api/dataset/node/41153.json
     # - field_datasetore_status
     # - field_format (numeric format-tid)
-    # - more details about the resource type (API, remote file, upload ... )
+    # - more details about the resource type (  api, remote_file, upload, datastore )
 
     columns = {
         'Lfd-Nr': 'lfd-nr', # specific for DKAN-Downloader
         'Resource-ID': 'id',
         'Resource-Name': 'name',
         'Format': 'format',
-        'Externe Url': 'url',
+        'Resource-Typ': 'RTYPE',
+        'Resource-Url': 'url',
         'Beschreibung': 'description',
-        'Prüfung OK?': 'response_ok', # specific for DKAN-Downloader
-        'HTTP-Responsecode':'response_code' # specific for DKAN-Downloader
+        'Prüfung OK?': 'response_ok',       # specific for DKAN-Downloader
+        'HTTP-Responsecode':'response_code', # specific for DKAN-Downloader
+    #    'Resource-Status': ['status'], # 1=Veröffentlicht, 0=Nicht veröffentlicht
+    #    'Startseite': ['promote'], # 1 = "Auf der Startseite", 0 = sonst
+    #    'Oben': ['sticky'], # 1 = "Oben in Listen", 0 = sonst
+    #    'Resource-Kommentare': ['comment'], # 1 = Geschlossen, 2 = Öffnen
+
+    #       field_link_api	[]
+    #       field_link_remote_file	[]
+    #       field_upload
+    #       field_datastore_status
+
+    #       "URL-Alias-Einstellungen" => finden sich NICHT im API response der ressource wieder
     }
 
     return columns
@@ -377,7 +410,7 @@ nodeSchema = {
         "field_granularity": {"$ref": "#/definitions/dkan_structure_single_value"},
         "field_license": {"$ref": "#/definitions/dkan_structure_single_value"},
         "field_public_access_level": {"$ref": "#/definitions/dkan_structure_single_value"},
-        "field_related_content": {"$ref": "#/definitions/dkan_structure"},
+        "field_related_content": {"$ref": "#/definitions/dkan_structure_related_content"},
         "field_resources": {"$ref": "#/definitions/dkan_structure_target_ids"},
         "field_spatial": {"$ref": "#/definitions/dkan_structure_spatial"},
         "field_spatial_geographical_cover": {"$ref": "#/definitions/dkan_structure_single_value"},
@@ -391,14 +424,14 @@ nodeSchema = {
         "field_playground": {"$ref": "#/definitions/dkan_structure"},
         "field_dataset_tags": {"$ref": "#/definitions/dkan_structure_tids"},
         "path": {"type": "string"},
-        "cid": {"type": "string"},
+        "cid": {"type": ["number", "string"]},
         "last_comment_timestamp": {"type": "string"},
         "last_comment_name": { "anyOf": [ {"type": "string"}, {"type": "null"}]},
         "last_comment_uid": {"type": "string"},
-        "comment_count": {"type": "string"},
+        "comment_count": {"type": ["number", "string"]},
         "name": {"type": "string"},
         "picture": {"type": "string"},
-        "data": {"type": "string"},
+        "data": {"type": ["null", "string"]},
     },
     "required": [ "vid", "uid", "title", "status", "comment", "promote", "sticky",
         "vuuid", "nid", "type", "language", "created", "changed", "tnid", "translate",
@@ -436,6 +469,30 @@ nodeSchema = {
                                     "value": {"type": "string"}
                                 },
                                 "required": ["value"]
+                            }
+                        }
+                    }
+                },
+                {   "type": "array",
+                    "maxItems": 0
+                }
+            ]
+        },
+        "dkan_structure_related_content": {
+            "anyOf": [
+                {   "type": "object",
+                    "properties": {
+                        "und": {
+                            "type": "array",
+                            "minItems": 1,
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "url": {"type": "string"},
+                                    "title": {"type": "string"},
+                                    "attributes": {"type": "array"}
+                                },
+                                "required": ["url", "title"]
                             }
                         }
                     }
