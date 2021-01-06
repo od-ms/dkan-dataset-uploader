@@ -7,6 +7,7 @@ from .datasetuploader import DatasetUploader
 from . import config
 from . import constants
 from . import excelwriter
+from . import dkanhelpers
 
 def test():
     er = DkanApiTest()
@@ -45,18 +46,23 @@ class DkanApiTest:
 
     def analyze_api(self):
         ''' Write a dataset with reduced fields to DKAN '''
+
         row = {}
         with open(os.path.normpath('dkan-uploader/example_row.json')) as json_file:
             row = json.load(json_file)
 
         # remove keys from
         remove_keys = [
-            'Geo', 'License', 'Temporal', 'Data ', 'Frequency', 'Granularity',
-            'Textformat', 'Tags'
-            ,'Language'
-            ,'Schlagworte'
+            'License',  'Data ', 'Granularity'
+            ,'Temporal'
 
             # Fixed! These are working:
+            #,'Schlagworte'
+            #,'Frequency'
+            #,'Geo'
+            #,'Textformat'
+            #,'Language'
+            #,'Tags'
             #,'Groups'
             #,'Public Access Level'
             #,'Related Content'

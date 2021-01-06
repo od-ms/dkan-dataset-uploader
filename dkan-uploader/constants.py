@@ -187,7 +187,12 @@ def get_column_config_dataset():
     """ This contains the default configuration of a row"""
 
     # How to get all..
-    #  - GROUPS: https://opendata.stadt-muenster.de/api/dataset/node.json?parameters[type]=group
+    #  - GROUPS: https://dkan.stadt.de/api/dataset/node.json?parameters[type]=group
+    #  - KEYWORDS/Schlagworte/field_dataset_tags:
+    #       https://dkan.stadt.de/autocomplete_deluxe/taxonomy/field_dataset_tags/%20/500?term=&synonyms=2
+    #           => Problem: Useless because no IDs are returned
+    #       https://dkan.stadt.de/admin/structure/taxonomy/dataset_tags
+    #           => Problem: You need to be logged in to DKAN admin interface, and the response is pure HTML..
 
     # Some FIELDS ARE MISSING IN "current_package_list_with_resources"
     # How to get them? We have to query:
@@ -244,7 +249,7 @@ def get_column_config_dataset():
         'Related Content': 'RELATED',
         # [x] Additional Info => wird anders eingebunden
         # [x] Resources => wird anders eingebunden
-        'Schlagworte': 'TAGS',
+        'Schlagworte': 'TAGS',  # field_dataset_tags
         # [x] Playground => Ein paar Felder, die anscheinend nur für Köln relevant sind
         # [x] Harvest Source => verwenden wir nicht, habe ich in der Doku erklärt
 

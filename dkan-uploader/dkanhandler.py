@@ -51,8 +51,11 @@ def getDkanData(dataset: Dataset):
     # URL ?
     if dataset.getValue(Dataset.HOMEPAGE):
         dkanData["field_landing_page"] = {"und": [{"url": dataset.getValue(Dataset.HOMEPAGE)}]}
+
     if dataset.getRawValue(Dataset.TAGS):
         dkanData["field_tags"] ={"und": expand_into("tid", dataset.getValue(Dataset.TAGS))}
+
+
     if dataset.getRawValue(Dataset.GROUPS):
         # check if the desired groups are really in the system, otherwise dkan will throw error
         group_ids = dataset.getValue(Dataset.GROUPS)
@@ -104,9 +107,17 @@ def getDkanData(dataset: Dataset):
 
 
     if dataset.getRawValue(Dataset.KEYWORDS):
-        dkanData["field_dataset_tags"] ={"und": expand_into("tid", dataset.getValue(Dataset.KEYWORDS))}
+        all_tags_in_dkan = dkanhelpers.HttpHelper.get_all_dkan_tags(api)
+        tags_in_dataset = dataset.getValue(Dataset.KEYWORDS)
+        correct_tags = []
+        for tag in tags_in_dataset:
+            if tag in all_tags_in_dkan:
+                logging.debug("Gefundener Tag %s: '%s'", tag, all_tags_in_dkan[tag])
+                correct_tags.append(tag)
+            else:
+                logging.error("Unbekannte Tag-ID %s wird verworfen!", tag)
 
-
+        dkanData["field_dataset_tags"] ={"und": expand_into("tid", correct_tags)}
 
         # "field_granularity": {"und": [{"value": "longitude/latitude"}]},
 
@@ -133,15 +144,22 @@ def getDkanData(dataset: Dataset):
         # working example for tags (2020-09-22):
         # find tags ids on this page: https://opendata.stadt-.de/admin/structure/taxonomy/tags
 
-    if False and ("start" in dkanData):
+    if dataset.getRawValue(Dataset.TEMPORAL_START):
+        ddate,dtime = dataset.getRawValue(Dataset.TEMPORAL_START).split(' ')
         dkanData["field_temporal_coverage"] = {
             "und": [{
                 "value": {
-                    "time": "00:00:00",
-                    "date": dkanData["start"]  # "MM/DD/YYYY"
+                    "time": dtime,
+                    "date": ddate # "MM/DD/YYYY"??
                 }
             }]
         }
+        if dataset.getRawValue(Dataset.TEMPORAL_END):
+            ddate,dtime = dataset.getRawValue(Dataset.TEMPORAL_END).split(' ')
+            dkanData["field_temporal_coverage"]['und'][0]['value2'] = {
+                "time": dtime,
+                "date": ddate # "MM/DD/YYYY"??
+            }
 
     #fieldWeight = 0
     #additionalFields = [
