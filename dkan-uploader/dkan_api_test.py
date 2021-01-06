@@ -51,12 +51,23 @@ class DkanApiTest:
         with open(os.path.normpath('dkan-uploader/example_row.json')) as json_file:
             row = json.load(json_file)
 
-        # remove keys from
-        remove_keys = [
-            'License',  'Data ', 'Granularity'
-            ,'Temporal'
+        # IF the DKAN api refuses to create a dataset
+        # (error 500, or "unable to validate dataset" or similar error..)
+        #
+        # THEN use the following "search"-method to find the field(s) that produce the error:
+        #   1.   uncomment keys in the following list, e.g. start with first 5 keys "license", "Data " etc
+        #   2.   run the script with "python3 -m dkan-uploader -wt"
+        #   3.   A test dataset will be created without those uncommented fields
+        #   4a.  if the creation of the dataset works, then one of the fields was the problem
+        #   4b.  otherwise some other field might be the problem (or many fields)
+        #   5.   uncomment / comment other keys in the list and restart the procedure (1.) until you find the broken field(s)
+        #   6.   if you found the broken field(s), try to fix the json data creation in method dkanhandler::GetDkanData()
 
-            # Fixed! These are working:
+        remove_keys = [
+            #'License'
+            #,'Data '
+            #,'Granularity'
+            #,'Temporal'
             #,'Schlagworte'
             #,'Frequency'
             #,'Geo'

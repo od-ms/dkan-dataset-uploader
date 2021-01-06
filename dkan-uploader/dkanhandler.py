@@ -145,21 +145,13 @@ def getDkanData(dataset: Dataset):
         # find tags ids on this page: https://opendata.stadt-.de/admin/structure/taxonomy/tags
 
     if dataset.getRawValue(Dataset.TEMPORAL_START):
-        ddate,dtime = dataset.getRawValue(Dataset.TEMPORAL_START).split(' ')
         dkanData["field_temporal_coverage"] = {
             "und": [{
-                "value": {
-                    "time": dtime,
-                    "date": ddate # "MM/DD/YYYY"??
-                }
+                "value": dataset.getRawValue(Dataset.TEMPORAL_START)
             }]
         }
         if dataset.getRawValue(Dataset.TEMPORAL_END):
-            ddate,dtime = dataset.getRawValue(Dataset.TEMPORAL_END).split(' ')
-            dkanData["field_temporal_coverage"]['und'][0]['value2'] = {
-                "time": dtime,
-                "date": ddate # "MM/DD/YYYY"??
-            }
+            dkanData["field_temporal_coverage"]['und'][0]['value2'] = dataset.getRawValue(Dataset.TEMPORAL_END)
 
     #fieldWeight = 0
     #additionalFields = [

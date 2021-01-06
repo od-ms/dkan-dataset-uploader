@@ -61,6 +61,9 @@ class HttpHelper:
         # But it can be used to read the taxonomy admin HTML page and scrape dataset_tags from it
         # Which seems to be the only way to get a list of the dataset_tags with their according IDs
 
+        if not pydkan_instance:
+            pydkan_instance = DatasetAPI(config.dkan_url, config.dkan_username, config.dkan_password, True)
+
         tags_url = config.dkan_url + '/admin/structure/taxonomy/dataset_tags'
         res = pydkan_instance.get(tags_url)
 

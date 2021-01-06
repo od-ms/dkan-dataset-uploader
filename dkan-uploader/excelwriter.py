@@ -5,7 +5,6 @@ import json
 import logging
 import hashlib
 import os.path
-from timeit import default_timer as timer
 import requests
 from jsonschema import validate
 from jsonschema.exceptions import ValidationError
@@ -39,6 +38,7 @@ class ExcelResultFile:
     current_row = 0
     current_dataset_nr = 0
     existing_dataset_ids = {}
+    dataset_tag_names =  {}
 
     def __init__(self, filename, extra_columns):
         self.filename = filename
@@ -173,6 +173,17 @@ class ExcelResultFile:
         return constants.get_column_config_resource()
 
 
+    def get_dataset_tag_name(self, t_id):
+        ''' Helper function that returns a dataset_tag name for a ID, with data fetching & caching '''
+        if not self.dataset_tag_names:
+            self.dataset_tag_names = dkanhelpers.HttpHelper.get_all_dkan_tags(None)
+
+        if t_id in self.dataset_tag_names:
+            return self.dataset_tag_names[t_id]
+
+        return '?'
+
+
     def convert_dkan_data_to_excel_row(self, package_data, dkan_node):
         self.current_dataset_nr += 1
         # get the config of which excel columns are mapped to which dkan json keys
@@ -224,7 +235,8 @@ class ExcelResultFile:
                 for t_index in range(0,10):
                     t_id = self.get_nested_json_value(dkan_node, ["field_dataset_tags", 'und', t_index, 'tid'])
                     if t_id:
-                        tags.append('"?" ({})'.format(t_id))
+                        t_name = self.get_dataset_tag_name(t_id)
+                        tags.append('"{}" ({})'.format(t_name, t_id))
                     value = ", ".join(tags)
 
             else:
@@ -498,14 +510,22 @@ def validate_single_dataset_row(source_row, source_node_id):
     logging.info(" == Result row == ")
     print(json.dumps(result_row, indent=2))
 
-
+    change_ok = [
+        'Dataset-Name', 'URL', 'Created', 'Modified', 'Resource-ID'
+    ]
     for key, value in source_row.items():
         if not key in result_row:
-            error_fields[key] = 'fehlt'
-            logging.warning(' - "%s" fehlt', key)
+            if key[:6] == "Extra-":
+                logging.info(' o "%s" OK, leer', key)
+            else:
+                error_fields[key] = 'fehlt'
+                logging.warning(' - "%s" fehlt', key)
         elif result_row[key] != value:
-            error_fields[key] = 'Abweichung'
-            logging.warning(' x "%s" erwartet "%s", bekommen "%s"', key, value, result_row[key])
+            if key in change_ok:
+                logging.info( ' O "%s" Abweichung OK: "%s"', key, value)
+            else:
+                error_fields[key] = 'Abweichung'
+                logging.warning(' x "%s" erwartet "%s", bekommen "%s"', key, value, result_row[key])
         else:
             logging.info(' o "%s" OK', key)
 
