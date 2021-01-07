@@ -32,7 +32,7 @@ class DkanApiTest:
     datasetuploader = None
 
     def __init__(self):
-        logging.info(" == Starting DKAN API test == ")
+        logging.info(_(" == DKAN API Test - Start == "))
         self.datasetuploader = DatasetUploader()
 
 
@@ -41,11 +41,17 @@ class DkanApiTest:
         with open(os.path.normpath('dkan-uploader/example_row.json')) as json_file:
             row = json.load(json_file)
 
-        self.create_dataset(row)
+        node_id = self.create_dataset(row)
+        if node_id:
+            self.validate_node(node_id)
+            self.remove_dataset(node_id)
+
 
 
     def analyze_api(self):
-        ''' Write a dataset with reduced fields to DKAN '''
+        ''' Can only be called from the console with commandline switch "-wt".
+            Write a dataset with reduced fields to DKAN.
+            Use this to debug the API instance. See instuctions in commentes below. '''
 
         row = {}
         with open(os.path.normpath('dkan-uploader/example_row.json')) as json_file:
@@ -84,7 +90,10 @@ class DkanApiTest:
 
         print(json.dumps(row, indent=2))
 
-        self.create_dataset(row)
+        node_id = self.create_dataset(row)
+        if node_id:
+            self.validate_node(node_id)
+            self.remove_dataset(node_id)
 
 
     def create_dataset(self, row):
@@ -97,8 +106,13 @@ class DkanApiTest:
             return None
 
         logging.info(_("Anlegen erfolgreich. Datensatz-ID: %s"), node_id)
-        self.validate_node(node_id)
-        return None
+        return node_id
+
+
+    def remove_dataset(self, node_id):
+        logging.info("Test-Datensatz %s wird wieder gelöscht.", node_id)
+        self.datasetuploader.deleteDataset(node_id)
+
 
     def validate_node(self, node_id):
         logging.info("Checking node %s", node_id)
@@ -108,5 +122,5 @@ class DkanApiTest:
 
         error_fields = excelwriter.validate_single_dataset_row(row, node_id)
         if error_fields:
-            logging.error(_("Fehler #5001: Datensatz konnte nicht 1:1 angelegt werden."))
+            logging.error(_("Fehler #5005: Datensatz konnte nicht 1:1 angelegt werden."))
             logging.error(_("Bitte prüfe Sie die Log-Ausgaben weiter oben, um die Problemdetails zu sehen."))

@@ -8,6 +8,7 @@ import requests
 from dkan.client import DatasetAPI, LoginError
 from .constants import Dataset, Resource
 from . import dkanhelpers
+from . import config
 
 api = None
 
@@ -153,48 +154,49 @@ def getDkanData(dataset: Dataset):
         if dataset.getRawValue(Dataset.TEMPORAL_END):
             dkanData["field_temporal_coverage"]['und'][0]['value2'] = dataset.getRawValue(Dataset.TEMPORAL_END)
 
-    #fieldWeight = 0
-    #additionalFields = [
-    #    {"first": "Kennziffer", "second": data['id'], "_weight": fieldWeight}
-    #]
 
-    #if "musterds" in data:
-    #    fieldWeight += 1
-    #    additionalFields.append({"first": "Kategorie", "second": data['musterds'], "_weight": fieldWeight})
-
-    # TODO: These are broken, check the changes in API and fix it
-    # dkanData["field_additional_info"] = {"und": additionalFields}
+    extra_fields = dataset.getExtraFields()
+    if extra_fields:
+        logging.debug("additional_infos: %s", extra_fields)
+        fieldWeight = 0
+        additional_fields = []
+        for field, value in extra_fields.items():
+            additional_fields.append({"first": field, "second": value, "_weight": fieldWeight})
+            fieldWeight += 1
+        dkanData["field_additional_info"] = {"und": additional_fields}
 
     return dkanData
 
 
-def connect(args):
+def connect():
     global api
     if api:
         return ""
 
     try:
-        logging.debug("DKAN url: %s", args.dkan_url)
+        logging.debug(_("DKAN-Url: %s"), config.dkan_url)
         # Last parameter is debug mode: True = Debugging ON
-        api = DatasetAPI(args.dkan_url, args.dkan_username, args.dkan_password, True)
+        api = DatasetAPI(config.dkan_url, config.dkan_username, config.dkan_password, True)
         return ""
     except LoginError as err:
+        logging.error(_("Fehler bei Verbindung zur DKAN-Instanz!"))
+        logging.error(_("Fehlermeldung %s", str(err)))
+        logging.error(_("Bitte prüfen Sie die angegebenen DKAN-Url und -Zugangsdaten."))
         return "Fehler: " + str(err)
 
 
-
 def create(data: Dataset):
-    global api
+    connect()
     logging.info(_("Erstelle DKAN-Datensatz: %s"), data)
     res = api.node('create', data=getDkanData(data))
     logging.debug("result %s", res.text)
-    json = res.json()
-    if not 'nid' in json:
+    json_response = res.json()
+    if not 'nid' in json_response:
         logging.error(_('DKAN-Fehler beim Erstellen des Datensatzes:'))
-        logging.error(_('Fehlermeldung: %s'), json)
+        logging.error(_('Fehlermeldung: %s'), json_response)
         return None
     else:
-        return json['nid']
+        return json_response['nid']
 
     # BEKANNTE FEHLER
     # - "Fehler bei der Eingabe\u00fcberpr\u00fcfung des Feldes"
@@ -202,14 +204,21 @@ def create(data: Dataset):
 
 
 def update(nodeId, data: Dataset):
-    global api
+    connect()
     logging.info(_("Datensatz-Update: '%s'"), data)
-    res = api.node('update', node_id=nodeId, data=getDkanData(data))
-    print("result", res.json())
+    response = api.node('update', node_id=nodeId, data=getDkanData(data))
+    logging.info(_("Ergebnis: %s"), response.json())
+
+
+def remove(nodeId):
+    connect()
+    logging.debug(_('Lösche Datensatz %s'), nodeId)
+    response = api.node('delete', node_id=nodeId)
+    logging.debug(_("Lösch-Ergebnis: %s"), response.json())
 
 
 def find(title):
-    global api
+    connect()
     params = {
         'parameters[type]': 'dataset',
         'parameters[title]': title
@@ -219,7 +228,7 @@ def find(title):
 
 
 def getDatasetDetails(nid):
-    global api
+    connect()
     r = api.node('retrieve', node_id=nid)
     if r.status_code == 404:
         raise Exception('Did not find existing dkan node:', nid)
@@ -330,7 +339,7 @@ def createResource(resource: Resource, nid, title):
 
 
 def createResourceFromData(data):
-    global api
+    connect()
     print("[create]", data['title'])
     r = api.node('create', data=data)
     if r.status_code != 200:
@@ -342,12 +351,12 @@ def createResourceFromData(data):
 
 
 def updateResource(data, existingResource):
-    global api
+    connect()
     nodeId = existingResource['nid']
     print("[update]", nodeId, data['title'])
     if 'upload_file' in data:
         # There seems to be a bug in DKAN:
-        # I did not manage to update a ressource that has an uploaded  file.
+        # I did not manage to update a resource that has an uploaded file.
         # Always receives weird http 500 errors from server:
         # "500 Internal Server Error : An error occurred (HY000): SQLSTATE[HY000]:
         #     General error: 1366 Incorrect integer value: '' for column 'field_upload_grid' at row 1"
@@ -386,7 +395,7 @@ def generateUploadFilename(url):
 
 
 def handleFileUpload(data, nodeId):
-    global api
+    connect()
 
     if "upload_file" in data:
         # download remote content
@@ -412,6 +421,7 @@ def handleFileUpload(data, nodeId):
 
 
 def updateResources(newResources, existingResources, dataset, forceUpdate):
+    connect()
     print("CHECKING RESOURCES")
 
     # add unique ids to newResources

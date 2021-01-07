@@ -116,9 +116,15 @@ class Dataset:
                 count_non_empty_dataset_fields += 1
             else:
                 logging.debug("  -  %s", column)
+
+        for field, value in row.items():
+            if field[:6] == 'Extra-':
+                logging.debug(" [.] Extra-Spalte '%s': '%s'", field[6:], value)
+
         logging.info(_(" Gefundende Datensatz-Felder: %s/%s"), count_non_empty_dataset_fields, len(get_column_config_dataset()))
         if count_non_empty_dataset_fields < 3:
             return None
+
 
         # Check if mandatory fields are set
         mandatory_fields = [
@@ -154,22 +160,30 @@ class Dataset:
         return value if value else default
 
 
+    def getExtraFields(self):
+        extras = {}
+        for field, value in self._row.items():
+            if field[:6] == 'Extra-':
+                extras[field[6:]] = value
+        return extras
+
+
     def getValue(self, valueName, default=""):
 
         if (valueName == Dataset.TAGS) or (valueName == Dataset.KEYWORDS):
             tags = self.getRawValue(valueName)
             value = re.findall(r'"[^"]*"\s+\((\d+)\)', tags)
-            logging.debug("Found '%s' Ids: %s", valueName, value)
+            logging.debug(_("ID '%s' gefunden: %s"), valueName, value)
 
         elif valueName == Dataset.GROUPS:
             tags = self.getRawValue(valueName)
             value = re.findall(r'"([^"]*)"\s+\((\d+)\)', tags)
-            logging.debug("Found groups: %s", value)
+            logging.debug(_("Gefundene Gruppen: %s"), value)
 
         elif valueName == Dataset.RELATED_CONTENT:
             tags = self.getRawValue(valueName)
             value = re.findall(r'"([^"]*)"\s+\(([^"]*)\)', tags)
-            logging.debug("Found '%s' entries: %s", valueName, value)
+            logging.debug(_("Einträge '%s' gefunden: %s"), valueName, value)
 
         else:
             value = self.getRawValue(valueName)

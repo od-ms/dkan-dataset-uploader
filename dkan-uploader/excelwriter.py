@@ -50,7 +50,7 @@ class ExcelResultFile:
             so we can then write it to a "new" file (=to continue from where we left off)
             Also return all dataset_ids as dict, so we can skip them
         """
-        logging.info("Reading excel file: %s", self.filename)
+        logging.info(_("Lese Excel-Datei: %s"), self.filename)
         loc = (self.filename)
         self.existing_dataset_ids = {}
         old_excel_content = []
@@ -98,7 +98,7 @@ class ExcelResultFile:
             self.add_plain_row(row)
 
     def get_existing_dataset_ids(self):
-        logging.debug("Existing ids: %s", self.existing_dataset_ids)
+        logging.debug(_("Existierende IDs: %s"), self.existing_dataset_ids)
         return self.existing_dataset_ids
 
 
@@ -143,10 +143,10 @@ class ExcelResultFile:
             else:
                 raise Exception("get_nested_json_value() not implemented for {} keys in: {}".format(len(keys), keys))
 
-            logging.debug("Nested dkan-value: %s => %s", keys[0], node_value)
+            logging.debug(_("DKAN-Wert: %s => %s"), keys[0], node_value)
 
         except (TypeError, KeyError, IndexError):
-            logging.debug("Empty key: %s", keys)
+            logging.debug(_("Leerer Schlüssel: %s"), keys)
 
         return node_value
 
@@ -261,7 +261,7 @@ class ExcelResultFile:
                 for rc_key in rcolumns_config:
                     rc_value = ""
                     if isinstance(rc_key, list):
-                        raise AbortProgramError(_('Anruf von Resource-Node-Daten ist noch nicht implementiert.'))
+                        raise AbortProgramError(_('Abruf von Resource-Node-Daten ist noch nicht implementiert.'))
 
                     if rc_key == 'lfd-nr':
                         rc_value = str(self.current_dataset_nr) + '-' + str(resource_number+1)
@@ -270,7 +270,7 @@ class ExcelResultFile:
                         rc_value = 'url'
                         url_keyname = self.get_column_config_resource()[constants.Resource.URL]
                         if isinstance(url_keyname, list):
-                            raise AbortProgramError(_('Anruf von Resource-Node-Daten ist noch nicht implementiert.'))
+                            raise AbortProgramError(_('Unerwarteter Knotentyp "Liste".'))
                         if (url_keyname in resource):
                             if resource[url_keyname].find(config.x_uploaded_resource_path) != -1:
                                 rc_value = 'uploaded'
@@ -281,7 +281,7 @@ class ExcelResultFile:
                         try:
                             rc_value = resource[rc_key]
                         except KeyError:
-                            logging.error('Key "%s" not found: %s', rc_key, resource)
+                            logging.error(_('Key "%s" nicht gefunden: %s'), rc_key, resource)
 
                     resource_row.extend([rc_value])
 
@@ -304,7 +304,7 @@ class ExcelResultFile:
                 resultarray[kk] = resource_row[count]
                 count += 1
         except IndexError as ie:
-            logging.error("Resource row does not have a column %s (%s)", count, kk)
+            logging.error(_("Resource-Zeile hat keine Spalte %s (%s)"), count, kk)
         return resultarray
 
 
@@ -407,7 +407,7 @@ class Dkan2Excel:
         for package_data in data['result'][0]:
             dkanApi.add_extras_from_package(extras, package_data)
 
-        logging.info("All 'additional-info'-fields of DKAN response: %s", extras)
+        logging.info(_("Alle 'additional-info'-Felder der DKAN-Instanz: %s"), extras)
         return extras
 
 
@@ -486,18 +486,18 @@ def write(command_line_excel_filename):
 
 
 def validate_single_dataset_row(source_row, source_node_id):
-    logging.debug("validate single dataset row")
+    logging.debug(_("Prüfung des Datensatzes %s beginnt."), source_node_id)
     dkanApi = DkanApiAccess()
 
     node_data = dkanApi.readDatasetNodeJson(None, source_node_id)
     package_id = node_data['uuid']
-    logging.info("Checking package id %s", package_id)
+    logging.info(_("Prüfen der Package-ID %s"), package_id)
     package_data = dkanApi.read_single_package(package_id)
 
     extra_columns = {}
     dkanApi.add_extras_from_package(extra_columns, package_data)
 
-    logging.info(" == Package data == ")
+    logging.info(_(" == Package-Daten == "))
     print(json.dumps(package_data, indent=2))
 
     excel_file = ExcelResultFile("dummy.xlsx", extra_columns)
@@ -505,10 +505,11 @@ def validate_single_dataset_row(source_row, source_node_id):
 
     error_fields = {}
 
-    logging.info(" == Source row == ")
-    print(json.dumps(source_row, indent=2))
-    logging.info(" == Result row == ")
-    print(json.dumps(result_row, indent=2))
+    logging.debug(_(" == Quell-Zeile == "))
+    logging.debug(json.dumps(source_row, indent=2))
+
+    logging.info(_(" == Ergebnis-Zeile == "))
+    logging.debug(json.dumps(result_row, indent=2))
 
     change_ok = [
         'Dataset-Name', 'URL', 'Created', 'Modified', 'Resource-ID'
@@ -516,18 +517,18 @@ def validate_single_dataset_row(source_row, source_node_id):
     for key, value in source_row.items():
         if not key in result_row:
             if key[:6] == "Extra-":
-                logging.info(' o "%s" OK, leer', key)
+                logging.info(_(' o "%s" OK, leer'), key)
             else:
                 error_fields[key] = 'fehlt'
-                logging.warning(' - "%s" fehlt', key)
+                logging.warning(_(' - "%s" fehlt'), key)
         elif result_row[key] != value:
             if key in change_ok:
-                logging.info( ' O "%s" Abweichung OK: "%s"', key, value)
+                logging.info(_(' O "%s" Abweichung OK: "%s"'), key, value)
             else:
                 error_fields[key] = 'Abweichung'
-                logging.warning(' x "%s" erwartet "%s", bekommen "%s"', key, value, result_row[key])
+                logging.warning(_(' x "%s" erwartet "%s", bekommen "%s"'), key, value, result_row[key])
         else:
-            logging.info(' o "%s" OK', key)
+            logging.info(_(' o "%s" OK'), key)
 
     return error_fields
 
@@ -605,7 +606,7 @@ def test_and_status(command_line_excel_filename):
             logging.error(_(" - Fehler #5003 - Die DKAN Instanz ist nicht kompatibel zu DKAN-Uploader!"))
 
     logging.info(_(" - Test der DKAN-Login-URL und -Benutzerdaten:"))
-    errormessage = dkanhandler.connect(config)
+    errormessage = dkanhandler.connect()
     if errormessage:
         logging.error(_('    Login fehlgeschlagen!'))
         logging.error('    %s', errormessage)
@@ -633,7 +634,7 @@ def print_excel_status(command_line_excel_filename):
     try:
         wb = xlrd.open_workbook(loc)
     except FileNotFoundError:
-        logging.info(" Datei existiert noch nicht. ")
+        logging.info(" Datei existiert noch nicht, es können keine Informationen zur Excel-Datei ausgegben werden.")
         return
 
     sheet = wb.sheet_by_index(0)

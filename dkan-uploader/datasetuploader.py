@@ -11,11 +11,9 @@ class DatasetUploader:
 
     # runtime config
     current_row = 0
-    dkanhandler = None
 
     def __init__(self):
         self.current_row = 0
-        # dkanhandler.connect(config)
 
 
     def getValue(self, dataset, value_name):
@@ -35,8 +33,6 @@ class DatasetUploader:
         logging.debug("dataset %s", dataset)
         logging.debug("resources %s", resources)
 
-        dkanhandler.connect(config)
-
         dataset_id = None
         if dataset.getValue(Dataset.NODE_ID):
             # update existing datasetlogging.error
@@ -54,21 +50,25 @@ class DatasetUploader:
                 dataset_id = node_search[0]['nid']
                 dkanhandler.update(dataset_id, dataset)
             else:
-                logging.error("Datensatz mit der ID %s wurde nicht gefunden", package_id)
+                logging.error(_("Datensatz mit der ID %s wurde nicht gefunden"), package_id)
 
         else:
             # create new dataset
             dataset_id = dkanhandler.create(dataset)
-            logging.debug("NEW Dataset-ID: %s", dataset_id)
+            logging.debug(_("NEUE Dataset-ID: %s"), dataset_id)
 
         if not dataset_id:
-            raise Exception("Fehler beim Erstellen oder beim Update des Datensatzes")
+            raise Exception(_("Fehler beim Erstellen oder beim Update des Datensatzes"))
 
         # add or update resources
         raw_dataset = dkanhandler.getDatasetDetails(dataset_id)
         self.processResources(raw_dataset, resources)
 
         return dataset_id
+
+
+    def deleteDataset(self, node_id):
+        dkanhandler.remove(node_id)
 
 
     def processResources(self, raw_dataset, resources):

@@ -1,8 +1,6 @@
-import sys
 import re
 import json
 import logging
-import hashlib
 import os.path
 from timeit import default_timer as timer
 from dkan.client import DatasetAPI, LoginError
@@ -37,7 +35,7 @@ class HttpHelper:
                 r = requests.get(remote_url)
                 myfile = r.text
 
-                logging.info(_('{:.4f}s URL load: "{}"').format(timer() - ti, remote_url))
+                logging.debug(_('{:.4f}s URL-Ladezeit: "{}"').format(timer() - ti, remote_url))
 
                 with open(temp_file, 'w') as fw:
                     fw.write(myfile)
@@ -46,9 +44,9 @@ class HttpHelper:
                 data = json.load(json_data)
 
         except json.decoder.JSONDecodeError as err:
-            logging.debug("Fehlermeldung (beim Parsen der DKAN-API JSON-Daten): %s", err)
-            logging.error("Fehler 5001 beim Lesen der Eingabedaten. Cache Datei wird gelöscht.")
-            logging.error("Bitte versuchen Sie es erneut. Wenn das nicht hilft, prüfen Sie die Fehlermeldung (s.o.) und konsultieren Sie die Dokumentation.")
+            logging.debug(_("Fehlermeldung (beim Parsen der DKAN-API JSON-Daten): %s"), err)
+            logging.error(_("Fehler 5001 beim Lesen der Eingabedaten. Cache Datei wird gelöscht."))
+            logging.error(_("Bitte versuchen Sie es erneut. Wenn das nicht hilft, prüfen Sie die Fehlermeldung (s.o.) und konsultieren Sie die Dokumentation."))
             os.remove(temp_file)
 
         return data
@@ -82,7 +80,7 @@ class HttpHelper:
 
         taglist = {}
         for result in matches:
-            logging.debug("found tag %s", result)
+            logging.debug(_("Tag erkannt: '%s'"), result)
             taglist[result[0]] = result[1]
 
         return taglist
