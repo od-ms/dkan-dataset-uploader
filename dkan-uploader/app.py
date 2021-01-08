@@ -12,7 +12,7 @@ from . import confighandler
 from . import dkan_api_test
 
 logging.basicConfig(level=logging.DEBUG, format='<%(asctime)s %(levelname)s> %(message)s')
-
+logging.getLogger("requests").setLevel(logging.WARNING)
 
 class DkanUploader:
     """Main file DKAN REMOTE CONTROL"""
@@ -27,7 +27,8 @@ class DkanUploader:
 
         # copy command line arguments into config
         config.overwrite_rows = True if args.overwrite else False
-        config.dataset_ids = args.ids
+        if args.ids:
+            config.dataset_ids = args.ids
 
         if args.download:
             excelwriter.write(args.filename)
@@ -73,7 +74,7 @@ class DkanUploader:
 
         # Command line arguments for UPLOAD
         parser.add_argument('-u', '--upload', action='store_true',
-            help='Run in UPLOAD mode: The DKAN content will be overwritten with data from the excel file')
+            help='Run in UPLOAD mode: The DKAN content will be overwritten with data from the excel file\n\ndkan api debugging:')
 
         parser.add_argument('-wt', '--write-test', action='store_true', dest='testwrite',
             help='Try to write a test-dataset to DKAN instance')

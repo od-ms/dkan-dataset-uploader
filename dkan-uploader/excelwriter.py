@@ -4,8 +4,6 @@ import sys
 import json
 import logging
 import hashlib
-import os.path
-import requests
 from jsonschema import validate
 from jsonschema.exceptions import ValidationError
 import xlrd
@@ -90,7 +88,7 @@ class ExcelResultFile:
                     self.existing_dataset_ids[dataset_id] = True
 
         except FileNotFoundError:
-            pass
+            logging.info(_("Excel-Datei existiert noch nicht: %s"), self.filename)
 
         self.initialize_new_excel_file()
 
@@ -109,10 +107,10 @@ class ExcelResultFile:
         self.worksheet = self.workbook.add_worksheet()
         self.bold = self.workbook.add_format({'bold': True})
         self.worksheet.set_column('A:A', 15)
-        self.worksheet.set_column('C:C', 20)
+        self.worksheet.set_column('C:C', 5)
 
         # Add group ("level: 1") to some columns so that they are "einklappbar"
-        self.worksheet.set_column('D:Y', None, None, {'level': 1})
+        self.worksheet.set_column('E:AA', None, None, {'level': 1})
 
         # write header row
         self.worksheet.write_row('A1', self.get_column_config(), self.bold)
@@ -126,7 +124,7 @@ class ExcelResultFile:
 
 
     def add_plain_row(self, column_contents):
-        # logging.debug("Writing row %s", column_contents)
+        logging.debug(_("Zeile wird geschrieben: %s"), column_contents)
         self.current_row += 1
         self.worksheet.write_row(self.current_row, 0, column_contents)
 
@@ -143,10 +141,11 @@ class ExcelResultFile:
             else:
                 raise Exception("get_nested_json_value() not implemented for {} keys in: {}".format(len(keys), keys))
 
-            logging.debug(_("DKAN-Wert: %s => %s"), keys[0], node_value)
+            #logging.debug(_(" [x] %s => %s"), keys[0], node_value)
 
         except (TypeError, KeyError, IndexError):
-            logging.debug(_("Leerer Schlüssel: %s"), keys)
+            if not (len(keys)>2 and isinstance(keys[2], int) and keys[2]>0):
+                logging.debug(_(" [ ] %s"), keys[0])
 
         return node_value
 
@@ -185,6 +184,9 @@ class ExcelResultFile:
 
 
     def convert_dkan_data_to_excel_row(self, package_data, dkan_node):
+        logging.debug("package_data %s", package_data)
+        logging.debug("dkan_node %s", dkan_node)
+
         self.current_dataset_nr += 1
         # get the config of which excel columns are mapped to which dkan json keys
         columns_json_keys = self.get_column_config_dataset().values()
@@ -240,15 +242,21 @@ class ExcelResultFile:
                     value = ", ".join(tags)
 
             else:
-                value = package_data[column_key] if column_key in package_data else None
+                if column_key in package_data:
+                    value = package_data[column_key]
+                    logging.debug(" [x] %s => %s", column_key, value)
+                else:
+                    value = None
+
             columns.append(value)
 
         # write package_data row without resources
         if (config.skip_resources) or ('resources' not in package_data):
-            return columns
+            return [columns]
 
         # write resource rows
         else:
+            all_the_rows = []
             for resource_number, resource in enumerate(package_data['resources']):
                 resource_row = []
                 if resource_number == 0:
@@ -257,8 +265,7 @@ class ExcelResultFile:
                     resource_row = [''] * len(columns)
 
                 # get all resource fields according to resource column config
-                rcolumns_config = self.get_column_config_resource().values()
-                for rc_key in rcolumns_config:
+                for rc_key in constants.get_column_config_resource().values():
                     rc_value = ""
                     if isinstance(rc_key, list):
                         raise AbortProgramError(_('Abruf von Resource-Node-Daten ist noch nicht implementiert.'))
@@ -268,10 +275,10 @@ class ExcelResultFile:
 
                     elif rc_key == 'RTYPE':
                         rc_value = 'url'
-                        url_keyname = self.get_column_config_resource()[constants.Resource.URL]
+                        url_keyname = constants.get_column_config_resource()[constants.Resource.URL]
                         if isinstance(url_keyname, list):
                             raise AbortProgramError(_('Unerwarteter Knotentyp "Liste".'))
-                        if (url_keyname in resource):
+                        if url_keyname in resource:
                             if resource[url_keyname].find(config.x_uploaded_resource_path) != -1:
                                 rc_value = 'uploaded'
                             elif resource[url_keyname].find(config.x_uploaded_datastore_path) != -1:
@@ -284,26 +291,33 @@ class ExcelResultFile:
                             logging.error(_('Key "%s" nicht gefunden: %s'), rc_key, resource)
 
                     resource_row.extend([rc_value])
+                cols = len(columns)
+                logging.debug(_("Ressource %s: %s %s"), resource_row[cols+4], resource_row[cols+3], resource_row[cols+2])
 
-            return resource_row
+                all_the_rows.append(resource_row)
+
+            return all_the_rows
 
 
     def add_dataset(self, package_data, dkan_node):
-        row = self.convert_dkan_data_to_excel_row(package_data, dkan_node)
-        self.add_plain_row(row)
+        rows = self.convert_dkan_data_to_excel_row(package_data, dkan_node)
+        for row in rows:
+            self.add_plain_row(row)
 
 
     def convert_dkan_data_to_excel_row_hash(self, package_data, dkan_node):
         ''' Create a dictionary with all the package_data information '''
-        resource_row = self.convert_dkan_data_to_excel_row(package_data, dkan_node)
+        resource_rows = self.convert_dkan_data_to_excel_row(package_data, dkan_node)
+        resource_row = resource_rows[0]
         resultarray = {}
         count = 0
         cols = {**self.get_column_config_dataset(), **self.get_column_config_resource()}
+        kk = ''
         try:
             for kk in cols:
                 resultarray[kk] = resource_row[count]
                 count += 1
-        except IndexError as ie:
+        except IndexError:
             logging.error(_("Resource-Zeile hat keine Spalte %s (%s)"), count, kk)
         return resultarray
 
@@ -426,7 +440,6 @@ class Dkan2Excel:
         existing_dataset_ids = excel_file.get_existing_dataset_ids()
 
         # write all datasets and resources to excel file
-        number = 0
         for package_data in data['result'][0]:
 
             isValid = dkanApi.validateJson(package_data, constants.datasetSchema)
@@ -435,22 +448,18 @@ class Dkan2Excel:
 
             dataset_id = package_data['id']
             if config.dataset_ids and (config.dataset_ids.find(dataset_id) == -1):
-                logging.debug("%s not in %s", dataset_id, config.dataset_ids)
+                logging.debug(_("%s nicht in %s"), dataset_id, config.dataset_ids)
                 continue
+            elif config.dataset_ids:
+                logging.info(_("Datensatz gefunden: %s"), dataset_id)
 
             if (not config.overwrite_rows) and (dataset_id in existing_dataset_ids):
-                logging.debug("Already in Excel. Skipping %s", dataset_id)
+                logging.info(_("Bereits im Excel. Überspringe %s"), dataset_id)
                 continue
 
             if package_data['type'] != 'Dataset':
-                logging.debug("Item is not of type 'Dataset'. Skipping %s", dataset_id)
+                logging.debug(_("Objekt ist kein 'Dataset'. Überspringe %s"), dataset_id)
                 continue
-
-            # TODO: this should be removed
-            number += 1
-            if number == 3:
-                logging.debug("Stopping now")
-                break
 
             node_data = None
             # Sadly all the api endpoints with a list of datasets have missing data
@@ -473,6 +482,9 @@ class Dkan2Excel:
             excel_file.add_dataset(package_data, node_data)
 
         excel_file.finish()
+        logging.info("")
+        logging.info(_('Vorgang abgeschlossen.'))
+
 
 
 
@@ -614,6 +626,9 @@ def test_and_status(command_line_excel_filename):
         logging.error(_('    Bitte prüfen Sie DKAN-URL, Benutzername und Password. %s, ...'), config.dkan_username)
     else:
         logging.info(_('    - Login erfogreich. - '))
+
+    logging.info("")
+    logging.info(_('Tests abgeschlossen.'))
 
 
 

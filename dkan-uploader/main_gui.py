@@ -1,8 +1,10 @@
 import os
+import re
 import logging
 from tkinter import scrolledtext, Tk, Frame, Label, Checkbutton, Button, Entry, StringVar, Text, IntVar, PhotoImage ,\
     HORIZONTAL, DISABLED, SUNKEN, RIDGE, INSERT, NORMAL, END, N, S, W, E
 from tkinter import ttk
+from tkinter import messagebox
 from datetime import datetime
 from . import config
 from . import excelreader
@@ -20,7 +22,7 @@ class LoggingTextHandler(logging.Handler):
 
         # Store a reference to the Text it will log to
         self.widget = widget
-        self.widget.config(state='disabled')
+        self.widget.config(state='normal')
         self.widget.tag_config("INFO", foreground="black")
         self.widget.tag_config("DEBUG", foreground="grey")
         self.widget.tag_config("WARNING", foreground="orange")
@@ -32,7 +34,7 @@ class LoggingTextHandler(logging.Handler):
 
         self.widget.configure(state='normal')
         self.widget.insert(END, msg + '\n', record.levelname)
-        self.widget.configure(state='disabled')
+        #self.widget.configure(state='disabled')
         # Autoscroll to the bottom
         self.widget.yview(END)
         self.widget.update()
@@ -123,6 +125,23 @@ class MainGui(Frame):
         self.test_button = Button(master, text=_("DKAN API Schreibtest"), command=self.action_test)
         self.test_button.grid(row=currentRow, column=2, sticky=W+E, pady=(y_spacing, 0))
 
+        ## -- Dataset settings section --
+        currentRow += 1
+        ttk.Separator(master, orient=HORIZONTAL).grid(column=0, row=currentRow, columnspan=3, sticky='we', pady=(20, 0))
+        currentRow += 1
+        aktion_label = Label(master, text=_("Einstellungen"), font=("Arial Bold", 11))
+        aktion_label.grid(row=currentRow, column=1, columnspan=2, sticky=W, pady=(10, 0))
+
+        # Input field for Dataset Query/Limit
+        currentRow += 1
+        validate_query = master.register(self.validate_query)   # we have to wrap the command
+        self.query_input = Entry(master, validate="key", validatecommand=(validate_query, '%P'))
+        self.query_input.delete(0, END)
+        self.query_input.insert(0, str(config.dataset_ids))
+        self.query_input.grid(row=currentRow, column=1, columnspan=2, sticky=W+E, pady=(y_spacing, y_spacing))
+        self.query_label = Label(master, text=_("Datensatz-Beschränkung:"))
+        self.query_label.grid(row=currentRow, column=0, sticky=E, pady=(y_spacing, y_spacing))
+
         ## -- Download section --
         currentRow += 1
         ttk.Separator(master, orient=HORIZONTAL).grid(column=0, row=currentRow, columnspan=3, sticky='we', pady=(20, 0))
@@ -170,7 +189,7 @@ class MainGui(Frame):
         self.master_right.rowconfigure( 0, weight=1 )
         self.master_right.columnconfigure( 0, weight=1 )
 
-        self.info_box = scrolledtext.ScrolledText(self.master_right, state='disabled', wrap='none', relief=RIDGE)
+        self.info_box = scrolledtext.ScrolledText(self.master_right, state='normal', wrap='none', relief=RIDGE)
         self.info_box.configure(font='TkFixedFont')
         self.info_box.grid(row=0, column=0, sticky=(N, S, E, W))
 
@@ -182,13 +201,13 @@ class MainGui(Frame):
         logger.addHandler(text_handler)
 
     def update_config(self):
-
         config.dkan_url = self.url_input.get()
         config.dkan_username = self.user_input.get()
         config.dkan_password = self.password_input.get()
         config.excel_filename = self.filename_input.get()
         config.check_resources = self.check_resources.get()
         config.skip_resources = self.skip_resources.get()
+        config.dataset_ids = self.query_input.get()
         has_changed = confighandler.write_config_file()
         if has_changed:
             tempdir = config.x_temp_dir
@@ -205,6 +224,9 @@ class MainGui(Frame):
 
     def validate(self, new_text):
         # logging.debug("There could be a validation here")
+        return True
+
+    def validate_query(self, dataset_query):
         return True
 
     def action_download(self):
@@ -225,11 +247,17 @@ class MainGui(Frame):
         dkan_api_test.test()
 
     def action_upload(self):
-        self.update_config()
-        self.message_headline(_('Aktion: DKAN schreiben'))
-        # self.upload_button.configure(state=DISABLED)
-        excelreader.read(False)
-        # self.upload_button.configure(state=NORMAL)
+        result = messagebox.askokcancel(
+            _("Daten in DKAN-Instanz schreiben"),
+            _("In Ihrer DKAN-Instanz werden nun die Datensätze aus der Excel-Datei '{}' angelegt.\
+                Dabei werden ggf. Daten überschrieben. Wollen Sie wirklich fortfahren?".format(config.excel_filename))
+            )
+
+        if result:
+            self.update_config()
+            self.message_headline(_('Aktion: DKAN schreiben'))
+            excelreader.read(False)
+
 
     def message_headline(self, message):
         self.message_with_time('Button-Interaktion')

@@ -96,13 +96,16 @@ Die Bedienungsanleitung für den Kommandozeilenmodus und die unterschiedlichen v
   * Ein Eingabeparameter für die DKAN-API hat nicht das erwartete Format. \
   *Lösung:* Wenn dies beim Upload auftritt, sind eventuell in der Excel-Datei nicht alle benötigten Spalten korrekt ausgefüllt. Füllen Sie alle Spalten aus.
   * Das API-Format hat sich geändert. Tritt z.B. auf, wenn Sie eine zu dieser Software inkompatible DKAN-Version nutzen. \
-  *Lösung:* Prüfen Sie die Version der von Ihnen verwendete DKAN-Version und gleichen Sie diese mit der vom Programm unterstützten Version ab. Wenn die Versionen inkompatibel sind, lassen Sie diese Software auf die neuere DKAN-Version anpassen, oder passen Sie selbst den Programmcode an, der die API anspricht.
+  *Lösung:* Prüfen Sie die Versionsnummer der von Ihnen verwendete DKAN-Instanz und gleichen Sie diese mit der vom Programm unterstützten Version ab. Wenn die Versionen inkompatibel sind, lassen Sie diese Software auf die neuere DKAN-Version anpassen, oder passen Sie selbst den Programmcode an, der die API anspricht.
 
 * ```Fehler 5002```: *Die DKAN-API-Antwort hat ein unerwartetes JSON-Format.*\
   Im DKAN-Updater-Quellcode sind JSON-Schemas hinterlegt, die die erwartete Antwort-Struktur der DKAN-API enthalten. Weicht die DKAN-API-Antwort davon ab, dann liegt das vermutlich daran, dass die von Ihnen verwendete DKAN-Version nicht kompatibel ist zu dieser Version des DKAN-Updater.
 
 * ```Fehler 5003```: *Die DKAN Instanz ist nicht kompatibel zu DKAN-Uploader*\
   Bei der Überprüfung der DKAN-API-Datenformate wurde festgestellt, dass die von Ihnen genutzte DKAN-Instanz nicht kompatibel ist. *Lösung:* Kontaktieren Sie eine Person Ihres Vertrauens mit Python-Softwareentwicklungsexpertise, und bitten Sie diese Person, den Open-Source-Quellcode dieser Anwendung anzupassen.
+
+* ```Fehler 5005```: *Datensatz konnte nicht 1:1 angelegt werden*\
+  Dieser Fehler kann auftreten beim Anlegen eines Test-Datensatzes im DKAN. Dabei wurde dann festgestellt, dass beim Auslesen des gerade erst angelegten Test-Datensatzes einige Feldwerte nicht mit den geschriebenen Werten übereinstimmen. Das muss nicht unbedingt ein Problem sein. Wenn Sie diese Fehlermeldung erhalten, dann sollte im selben Fenster für die Logmeldungen oberhalb der Fehlermeldung eine Zusammenfassung angezeigt werden, welche Felder nicht exakt übereinstimmen. Sie können anhand dieser Logmeldungen übereprüfen, ob der Fehler als problematisch zu bewerten ist. Das passiert z.B. wenn die DKAN Konfiguration geändert wurde, und die Lizenz-Namen nicht mehr übereinstimmen.
 
 
 ## Nicht unterstützte Datenfelder
@@ -111,12 +114,10 @@ Die Bedienungsanleitung für den Kommandozeilenmodus und die unterschiedlichen v
  * Harvest Source
  * Alle "Playground"-Felder
 
-## Felder, die gern Probleme machen
 
-* **Gruppen** => Wichtig! Existieren die Gruppen-IDs, auf die referenziert wird?
+## Bekannte Probleme
 
-
-## Bekannte, aber derzeit ungelöste Probleme
-
-* **Stichworte**: Es scheint über die DKAN-API für die "Stichworte" ("dataset_tags") **keine** Möglichkeit zu geben, eine Zuordnung zwischen IDs und Namen herauszufinden. Mit folgendem Link kann man zwar eine Liste der Stichworte bekommen, aber ohne IDs: https://opendata.stadt-muenster.de/autocomplete_deluxe/taxonomy/field_dataset_tags/%20/500?term=&synonyms=2 Da die API aber nur Stichwort-IDs zurück gibt, ist die Folge, dass man Stichworte in der Excel-Datei nur über IDs angeben kann.
 * **Unveröffentlichte Datensätze**: Der Daten-Download des DKAN-Uploader funktioniert nur mit **veröffentlichten** Datensätzen, da nur solche Datensätze über die CKAN API abgerufen werden können.
+
+* **Fehlende API Endpunkte im DKAN**: Die DKAN-API bietet keine Endpunkte zum Abruf der "Stichworte" ("dataset_tags") oder "Dateitypen". Da zu diesen allerdings die IDs benötigt werden, werden sie über das HTML-Administrations-Interface von DKAN abgerufen und "gescraped". Dabei handelt es sich um die Urls /admin/structure/taxonomy/dataset_tags und /admin/structure/taxonomy/format
+

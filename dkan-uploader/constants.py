@@ -441,7 +441,7 @@ nodeSchema = {
         "field_spatial": {"$ref": "#/definitions/dkan_structure_spatial"},
         "field_spatial_geographical_cover": {"$ref": "#/definitions/dkan_structure_single_value"},
         "field_tags": {"$ref": "#/definitions/dkan_structure_tids"},
-        "field_temporal_coverage": {"$ref": "#/definitions/dkan_structure_single_value"},
+        "field_temporal_coverage": {"$ref": "#/definitions/dkan_structure_single_value_or_null"},
         "og_group_ref": {"$ref": "#/definitions/dkan_structure_target_ids"},
         "field_landing_page": {"$ref": "#/definitions/dkan_structure"},
         "field_language": {"$ref": "#/definitions/dkan_structure_single_value"},
@@ -452,7 +452,7 @@ nodeSchema = {
         "path": {"type": "string"},
         "cid": {"type": ["number", "string"]},
         "last_comment_timestamp": {"type": "string"},
-        "last_comment_name": { "anyOf": [ {"type": "string"}, {"type": "null"}]},
+        "last_comment_name": {"type": ["null", "string"]},
         "last_comment_uid": {"type": "string"},
         "comment_count": {"type": ["number", "string"]},
         "name": {"type": "string"},
@@ -493,6 +493,29 @@ nodeSchema = {
                                 "type": "object",
                                 "properties": {
                                     "value": {"type": "string"}
+                                },
+                                "required": ["value"]
+                            }
+                        }
+                    }
+                },
+                {   "type": "array",
+                    "maxItems": 0
+                }
+            ]
+        },
+        "dkan_structure_single_value_or_null": {
+            "anyOf": [
+                {   "type": "object",
+                    "properties": {
+                        "und": {
+                            "type": "array",
+                            "minItems": 1,
+                            "maxItems": 1,
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "value": {"type": ["null", "string"]}
                                 },
                                 "required": ["value"]
                             }
