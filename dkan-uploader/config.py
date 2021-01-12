@@ -19,6 +19,7 @@ api_encoding = "utf-8"
 # command line options
 overwrite_rows = False
 dataset_ids = ""
+message_level = "Debug"
 
 # ------------------------------------------------------------------------
 # Internal settings, only change below here if you know what you are doing

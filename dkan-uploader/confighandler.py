@@ -28,6 +28,7 @@ def read_config_file():
             config.skip_resources = config_ini.getboolean('features','skip_resources')
             config.check_resources = config_ini.getboolean('features','check_resources')
             config.dataset_ids = config_ini['features']['dataset_ids']
+            config.message_level = config_ini['features']['message_level']
         except:
             logging.error("Beim Lesen der Config-Datei ist ein Fehler aufgetreten. Es wird mit der Standard-Config fortgefahren.")
 
@@ -63,6 +64,7 @@ def write_config_file():
     config_ini.set('features', 'skip_resources', 'Yes' if config.skip_resources else 'No')
     config_ini.set('features', 'check_resources', 'Yes' if config.check_resources else 'No')
     config_ini.set('features', 'dataset_ids', config.dataset_ids)
+    config_ini.set('features', 'message_level', config.message_level)
 
     config_new = {s:dict(config_ini.items(s)) for s in config_ini.sections()}
 

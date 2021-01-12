@@ -2,7 +2,7 @@ import os
 import re
 import logging
 from tkinter import scrolledtext, Tk, Frame, Label, Checkbutton, Button, Entry, StringVar, Text, IntVar, PhotoImage ,\
-    HORIZONTAL, DISABLED, SUNKEN, RIDGE, INSERT, NORMAL, END, N, S, W, E
+    HORIZONTAL, DISABLED, SUNKEN, RIDGE, INSERT, NORMAL, END, N, S, W, E, OptionMenu
 from tkinter import ttk
 from tkinter import messagebox
 from datetime import datetime
@@ -138,8 +138,18 @@ class MainGui(Frame):
         self.query_input = Entry(master, validate="key", validatecommand=(validate_query, '%P'))
         self.query_input.delete(0, END)
         self.query_input.insert(0, str(config.dataset_ids))
-        self.query_input.grid(row=currentRow, column=1, columnspan=2, sticky=W+E, pady=(y_spacing, y_spacing))
+        self.query_input.grid(row=currentRow, column=1, columnspan=2, sticky=W+E, pady=(10, 0))
         self.query_label = Label(master, text=_("Datensatz-Beschränkung:"))
+        self.query_label.grid(row=currentRow, column=0, sticky=E, pady=(10, 0))
+
+        # Debug Mode Dropdown
+        currentRow += 1
+        OptionList = ["Debug","Normal"]
+        self.message_level = StringVar(master)
+        self.message_level.set(config.message_level if config.message_level else OptionList[0])
+        self.debug_opt=OptionMenu(master, self.message_level, *OptionList)
+        self.debug_opt.grid(row=currentRow, column=1, columnspan=2, sticky=W, pady=(y_spacing, y_spacing))
+        self.query_label = Label(master, text=_("Info-Level:"))
         self.query_label.grid(row=currentRow, column=0, sticky=E, pady=(y_spacing, y_spacing))
 
         ## -- Download section --
@@ -182,7 +192,6 @@ class MainGui(Frame):
 
 
     def init_logging_textarea(self, window):
-
         # Textarea for Log File display
         self.master_right = ttk.Frame(window, padding=(3, 3, 12, 12))
         self.master_right.grid(column=1, row=0, sticky=(N, S, E, W))
@@ -200,6 +209,7 @@ class MainGui(Frame):
         logger = logging.getLogger()
         logger.addHandler(text_handler)
 
+
     def update_config(self):
         config.dkan_url = self.url_input.get()
         config.dkan_username = self.user_input.get()
@@ -208,6 +218,9 @@ class MainGui(Frame):
         config.check_resources = self.check_resources.get()
         config.skip_resources = self.skip_resources.get()
         config.dataset_ids = self.query_input.get()
+        config.message_level = self.message_level.get()
+        logging.info("Log level: %s", config.message_level)
+        logging.getLogger().setLevel(logging.INFO if config.message_level == 'Normal' else logging.DEBUG)
         has_changed = confighandler.write_config_file()
         if has_changed:
             logging.debug(_("Konfiguration wurde geändert."))
