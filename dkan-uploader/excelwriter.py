@@ -37,6 +37,7 @@ class ExcelResultFile:
     current_dataset_nr = 0
     existing_dataset_ids = {}
     dataset_tag_names =  {}
+    column_mapping = []
 
     def __init__(self, filename, extra_columns):
         self.filename = filename
@@ -56,24 +57,24 @@ class ExcelResultFile:
         try:
             wb = xlrd.open_workbook(loc)
             sheet = wb.sheet_by_index(0)
+            self.column_mapping = []
 
             # check if columns of excel file are same as our config
-            headline_row = self.get_column_config()
+            all_dkan_rows = self.get_column_config()
             for i in range(sheet.ncols):
                 column_header = sheet.cell_value(0, i)
-                if i >= len(headline_row):
-                    logging.warning(_("Folgende Spalte wird ignoriert: {}").format(column_header))
-                elif column_header != headline_row[i]:
-                    logging.warning(_("Different fields in DKAN and Excel file: {} != {}").format(column_header, headline_row[i]))
-                    raise AbortProgramError(
-                        _("Die bereits existierende Excel-Datei hat einen falschen Spalten-Aufbau.\n"
-                            + "Problem in Spalte {}: Erwartet war '{}', aber gefunden wurde '{}'\n"
-                            + "Laden Sie den DKAN Inhalt am besten in eine andere Excel-Datei"
-                            + " (z.B. geben Sie einen Dateinamen an, der noch nicht existiert, und vergleichen Sie dann die Spalten der beiden Dateien)")
-                        .format(i, headline_row[i], column_header)
-                        )
+                self.column_mapping.append(column_header)
+                if column_header not in all_dkan_rows:
+                    logging.warning(_("Unbekannte Spalte wird ignoriert: {}").format(column_header))
+                else:
+                    all_dkan_rows.remove(column_header)
 
-
+            if all_dkan_rows:
+                logging.warning(_("Fehlende Felder in Excel-Datei: {}"), all_dkan_rows)
+                raise AbortProgramError(
+                    _("Es fehlt möglicherweise ein wichtiges DKAN-Feld in Ihrer Excel-Datei. Fügen Sie bitte die fehlende(n) Spalte(n) hinzu. Laden Sie den DKAN Inhalt am besten in eine andere Excel-Datei"
+                        + " (z.B. geben Sie einen Dateinamen an, der noch nicht existiert, und vergleichen Sie dann die Spalten der beiden Dateien)"
+                    ))
 
             for j in range(1, sheet.nrows):
                 excelrow = []
@@ -83,17 +84,23 @@ class ExcelResultFile:
                 old_excel_content.append(excelrow)
 
                 # save all package_data ids for later use (=lookup of existing ids)
-                dataset_id = excelrow[0]
+                index_of_dataset_id = self.column_mapping.index(constants.Dataset.DATASET_ID)
+                dataset_id = excelrow[index_of_dataset_id]
                 if dataset_id:
                     self.existing_dataset_ids[dataset_id] = True
 
         except FileNotFoundError:
             logging.info(_("Excel-Datei existiert noch nicht: %s"), self.filename)
+            self.column_mapping = list(self.get_column_config_dataset().keys()) + list(self.get_column_config_resource().keys())
+
 
         self.initialize_new_excel_file()
 
         for row in old_excel_content:
             self.add_plain_row(row)
+
+        self.current_dataset_nr = len(self.existing_dataset_ids)
+
 
     def get_existing_dataset_ids(self):
         logging.debug(_("Existierende IDs: %s"), self.existing_dataset_ids)
@@ -124,7 +131,7 @@ class ExcelResultFile:
 
 
     def add_plain_row(self, column_contents):
-        logging.debug(_("Zeile wird geschrieben: %s"), column_contents)
+        logging.debug(_("Zeileninhalt: %s"), column_contents)
         self.current_row += 1
         self.worksheet.write_row(self.current_row, 0, column_contents)
 
@@ -183,15 +190,13 @@ class ExcelResultFile:
         return '?'
 
 
-    def convert_dkan_data_to_excel_row(self, package_data, dkan_node):
-        logging.debug("package_data %s", package_data)
-        logging.debug("dkan_node %s", dkan_node)
+    def convert_dkan_data_to_excel_row_hash(self, package_data, dkan_node):
+        #logging.debug("package_data %s", package_data)
+        #logging.debug("dkan_node %s", dkan_node)
 
-        self.current_dataset_nr += 1
         # get the config of which excel columns are mapped to which dkan json keys
-        columns_json_keys = self.get_column_config_dataset().values()
-        columns = []
-        for column_key in columns_json_keys:
+        columns = {}
+        for column_name, column_key in self.get_column_config_dataset().items():
             value = None
             if isinstance(column_key, list):
                 value = self.get_nested_json_value(dkan_node, column_key)
@@ -248,7 +253,7 @@ class ExcelResultFile:
                 else:
                     value = None
 
-            columns.append(value)
+            columns[column_name] = value
 
         # write package_data row without resources
         if (config.skip_resources) or ('resources' not in package_data):
@@ -274,14 +279,9 @@ class ExcelResultFile:
             # #################################################################
 
             for resource_number, resource in enumerate(package_data['resources']):
-                resource_row = []
-                if resource_number == 0:
-                    resource_row = columns.copy()
-                else:
-                    resource_row = [''] * len(columns)
-
+                resource_row = {}
                 # get all resource fields according to resource column config
-                for rc_key in constants.get_column_config_resource().values():
+                for column_name, rc_key in constants.get_column_config_resource().items():
                     rc_value = ""
                     if isinstance(rc_key, list):
                         raise AbortProgramError(_('Abruf von Resource-Node-Daten ist noch nicht implementiert.'))
@@ -306,9 +306,16 @@ class ExcelResultFile:
                         except KeyError:
                             logging.error(_('Key "%s" nicht gefunden: %s'), rc_key, resource)
 
-                    resource_row.extend([rc_value])
-                cols = len(columns)
-                logging.debug(_("Ressource %s: %s %s"), resource_row[cols+4], resource_row[cols+3], resource_row[cols+2])
+                    resource_row[column_name] = rc_value
+
+                logging.debug(_(
+                    "Ressource %s: %s %s"),
+                    resource_row[constants.Resource.TYP],
+                    resource_row[constants.Resource.FORMAT],
+                    resource_row[constants.Resource.NAME])
+
+                if resource_number == 0:    # first row also has the dataset_fields
+                    resource_row = {**columns, **resource_row}
 
                 all_the_rows.append(resource_row)
 
@@ -316,26 +323,14 @@ class ExcelResultFile:
 
 
     def add_dataset(self, package_data, dkan_node):
-        rows = self.convert_dkan_data_to_excel_row(package_data, dkan_node)
+        self.current_dataset_nr += 1
+        rows = self.convert_dkan_data_to_excel_row_hash(package_data, dkan_node)
         for row in rows:
-            self.add_plain_row(row)
+            excel_row = []
+            for key in self.column_mapping:
+                excel_row.append(row[key] if key in row else '')
 
-
-    def convert_dkan_data_to_excel_row_hash(self, package_data, dkan_node):
-        ''' Create a dictionary with all the package_data information '''
-        resource_rows = self.convert_dkan_data_to_excel_row(package_data, dkan_node)
-        resource_row = resource_rows[0]
-        resultarray = {}
-        count = 0
-        cols = {**self.get_column_config_dataset(), **self.get_column_config_resource()}
-        kk = ''
-        try:
-            for kk in cols:
-                resultarray[kk] = resource_row[count]
-                count += 1
-        except IndexError:
-            logging.error(_("Resource-Zeile hat keine Spalte %s (%s)"), count, kk)
-        return resultarray
+            self.add_plain_row(excel_row)
 
 
     def finish(self):
@@ -529,7 +524,8 @@ def validate_single_dataset_row(source_row, source_node_id):
     print(json.dumps(package_data, indent=2))
 
     excel_file = ExcelResultFile("dummy.xlsx", extra_columns)
-    result_row = excel_file.convert_dkan_data_to_excel_row_hash(package_data, node_data)
+    result_rows = excel_file.convert_dkan_data_to_excel_row_hash(package_data, node_data)
+    result_row = result_rows[0]
 
     error_fields = {}
 
