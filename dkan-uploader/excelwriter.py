@@ -257,6 +257,22 @@ class ExcelResultFile:
         # write resource rows
         else:
             all_the_rows = []
+
+
+            # #################################################################
+            # TODO: Hier könnte man statt dessen die dkan node
+            # für jede resource holen, um herauszufinden um welchen url-typ es sich handelt.
+            # dann dauert es nur länger weil wir für jede resource einen weiteren request zum server machen müssen
+            #
+            # Das würde so gehen:
+            #   dkanhelpers.HttpHelper.read_dkan_node(resource_node_id):
+            #   api_url = self.get_nested_json_value(resource_node, ["field_link_api", 'und', 0, 'url'])
+            #   remote_file = self.get_nested_json_value(resource_node, ["field_link_remote_file", 'und', 0, 'uri'])
+            #   uploaded_file = self.get_nested_json_value(resource_node, ["field_upload", 'und', 0, 'filename'])
+            #   und entsprechend könnte man dann auch folgenden typ unterscheiden:
+            #       constants.Resource.TYPE_REMOTE_FILE
+            # #################################################################
+
             for resource_number, resource in enumerate(package_data['resources']):
                 resource_row = []
                 if resource_number == 0:
@@ -274,15 +290,15 @@ class ExcelResultFile:
                         rc_value = str(self.current_dataset_nr) + '-' + str(resource_number+1)
 
                     elif rc_key == 'RTYPE':
-                        rc_value = 'url'
+                        rc_value = constants.Resource.TYPE_URL
                         url_keyname = constants.get_column_config_resource()[constants.Resource.URL]
                         if isinstance(url_keyname, list):
                             raise AbortProgramError(_('Unerwarteter Knotentyp "Liste".'))
                         if url_keyname in resource:
                             if resource[url_keyname].find(config.x_uploaded_resource_path) != -1:
-                                rc_value = 'uploaded'
+                                rc_value = constants.Resource.TYPE_UPLOAD
                             elif resource[url_keyname].find(config.x_uploaded_datastore_path) != -1:
-                                rc_value = 'datastore'
+                                rc_value = constants.Resource.TYPE_DATASTORE
 
                     else:
                         try:

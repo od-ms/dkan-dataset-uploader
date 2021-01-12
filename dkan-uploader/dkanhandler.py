@@ -1,14 +1,16 @@
 """Module to handle DKAN API calls"""
 import re
 import os
+from typing import List
 import json
-import hashlib
 import logging
 import requests
 from dkan.client import DatasetAPI, LoginError
 from .constants import Dataset, Resource
 from . import dkanhelpers
 from . import config
+
+# pylint: disable=global-statement
 
 api = None
 
@@ -161,8 +163,9 @@ def getDkanData(dataset: Dataset):
         fieldWeight = 0
         additional_fields = []
         for field, value in extra_fields.items():
-            additional_fields.append({"first": field, "second": value, "_weight": fieldWeight})
-            fieldWeight += 1
+            if field and value:
+                additional_fields.append({"first": field, "second": value, "_weight": fieldWeight})
+                fieldWeight += 1
         dkanData["field_additional_info"] = {"und": additional_fields}
 
     return dkanData
@@ -241,12 +244,12 @@ def getResourceDkanData(resource, nid, title):
     isUpload = False
 
     if isinstance(resource, Resource):
-
         # TODO 'Resource-ID': 'id',
         # [x] 'Resource-Name': 'name',
         # [x] 'Format': 'format',
         # [x] 'Externe Url': 'url',
         # [x] 'Description': 'description',
+        # [ ] TYP = 'Resource-Typ'
         # 'Prüfung OK?': 'response_ok',
         # 'HTTP-Responsecode':'response_code'
         resource = {
@@ -269,18 +272,8 @@ def getResourceDkanData(resource, nid, title):
         resource['type'] = rFormat = rFormat[0:-7]
         isUpload = True
 
+    formatLookup = dkanhelpers.HttpHelper.get_all_dkan_fileformats(api)
 
-    # Resource FORMAT ID LIST: https://opendata.stadt-.de/admin/structure/taxonomy/format
-    # TODO: we should probably read this list from somewhere, as it can be different on every portal
-    # BAAD it seems there is no API endpoint in DKAN to get this list
-    formatLookup = {
-        "csv": 69,
-        "data": 70,
-        "pdf": 74,
-        "shape": 160,
-        "wfs": 159,
-        "xlsx": 169
-    }
     lowerFormat = rFormat.lower()
     formatId = formatLookup[lowerFormat] if (lowerFormat in formatLookup) else 70
 
@@ -390,10 +383,6 @@ def updateResource(data, existingResource):
             raise Exception('Error during resource update:', r, r.text)
 
 
-def generateUploadFilename(url):
-    return hashlib.md5(url.encode('utf-8')).hexdigest() + '.csv'
-
-
 def handleFileUpload(data, nodeId):
     connect()
 
@@ -420,19 +409,12 @@ def handleFileUpload(data, nodeId):
         print(aResponse.status_code, aResponse.text)
 
 
-def updateResources(newResources, existingResources, dataset, forceUpdate):
+def updateResources(newResources:List[Resource], existingResources, dataset, forceUpdate):
     connect()
-    print("CHECKING RESOURCES")
-
-    # add unique ids to newResources
-    for res in newResources:
-        if res['type'][-7:] == '-upload':
-            res["uniqueId"] = generateUploadFilename(res["url"])
-        else:
-            res["uniqueId"] = res["url"]
+    logging.info("CHECKING RESOURCES")
 
     for existingResource in existingResources:
-        print(existingResource['target_id'], end=' ')
+        logging.info("resource %s", existingResource['target_id'])
         # TODO: existingResource is crap, because it's only a list of target_ids!
         # TODO: Don't use existingResource, use resourceData instead!
 
@@ -444,28 +426,30 @@ def updateResources(newResources, existingResources, dataset, forceUpdate):
         elif 'und' in resourceData['field_upload']:
             uniqueId = resourceData['field_upload']['und'][0]['filename']
         else:
-            print("[EXISTING RESOURCE WITHOUT URL -> MAKES NO SENSE -> DELETE]")
+            logging.debug("[EXISTING RESOURCE WITHOUT URL -> MAKES NO SENSE -> DELETE]")
             uniqueId = resourceData['nid']
 
+
+
         # check if the existing resource url also is in the new resource urls
-        el = [x for x in newResources if x['uniqueId'] == uniqueId]
+        el = [x for x in newResources if x.getUniqueId() == uniqueId]
         if el:
             # Found url => That means this is an update
 
             # remove element from the resources that will be created
-            newResources = [x for x in newResources if x['uniqueId'] != uniqueId]
-
+            newResources = [x for x in newResources if x.getUniqueId() != uniqueId]
+            newResource = el[0]
             # Only update if resource title has changed
-            newData = getResourceDkanData(el[0], dataset['nid'], dataset['title'])
+            newData = getResourceDkanData(newResource, dataset['nid'], dataset['title'])
             if (newData['title'] != resourceData['title']) or forceUpdate:
                 updateResource(newData, resourceData)
             else:
-                print("[no-change]", el[0]["url"])
+                logging.info("  [no-change] %s", newResource)
         else:
             # This seems to be an old url that we dont want anymore => delete it
-            print("[remove]", existingResource)
+            logging.info("  [remove] %s", existingResource)
             op = api.node('delete', node_id=existingResource['target_id'])
-            print(op.status_code, op.text)
+            logging.debug("result status=%s, text=%s", op.status_code, op.text)
 
     # Create new resources
     for resource in newResources:

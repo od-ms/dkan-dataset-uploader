@@ -12,6 +12,9 @@ from . import constants
 class HttpHelper:
     ''' helper methods .. refactor '''
 
+    file_formats = None
+    dkan_tags = None
+
     @staticmethod
     def read_dkan_node(node_id):
         node_data = HttpHelper.read_remote_json_with_cache(config.x_api_get_node_details.format(node_id), '{}-complete.json'.format(node_id))
@@ -51,8 +54,24 @@ class HttpHelper:
 
         return data
 
+
     @staticmethod
     def get_all_dkan_tags(pydkan_instance):
+        if not HttpHelper.dkan_tags:
+            HttpHelper.dkan_tags = HttpHelper.parse_admin_page_contents(pydkan_instance, '/admin/structure/taxonomy/dataset_tags')
+        return HttpHelper.dkan_tags
+
+
+    @staticmethod
+    def get_all_dkan_fileformats(pydkan_instance):
+        if not HttpHelper.file_formats:
+            fileformats = HttpHelper.parse_admin_page_contents(pydkan_instance, '/admin/structure/taxonomy/format')
+            HttpHelper.file_formats = {str(value).lower():key for key, value in fileformats.items()}
+        return HttpHelper.file_formats
+
+
+    @staticmethod
+    def parse_admin_page_contents(pydkan_instance, admin_page_path):
 
         # When logged in via pydkan, it is possible to send requests to the administration interface..
         # I dont know if that is intended behaviour or just a side effect..
@@ -62,13 +81,13 @@ class HttpHelper:
         if not pydkan_instance:
             pydkan_instance = DatasetAPI(config.dkan_url, config.dkan_username, config.dkan_password, True)
 
-        tags_url = config.dkan_url + '/admin/structure/taxonomy/dataset_tags'
+        tags_url = config.dkan_url + admin_page_path
         res = pydkan_instance.get(tags_url)
 
         if res.status_code != 200:
-            logging.debug("Response content: %s", res.text)
-            logging.info("Tags URL: %s", tags_url)
-            logging.error("Something went wrong when trying to get all dataset_tags from dkan instance.")
+            logging.debug(_("Server-Antwort: %s"), res.text)
+            logging.info(_("Administrations-URL: %s"), tags_url)
+            logging.error(_("Folgende DKAN-Administrations-Seite konnte nicht gelesen werden: %s"), admin_page_path)
 
         # parse html content to get dataset_tags names and IDs
         page_content = res.text
@@ -80,10 +99,12 @@ class HttpHelper:
 
         taglist = {}
         for result in matches:
-            logging.debug(_("Tag erkannt: '%s'"), result)
             taglist[result[0]] = result[1]
 
+        logging.debug(_("Admin-Scraping-Ergebnis: %s"), taglist)
+
         return taglist
+
 
 
     @staticmethod

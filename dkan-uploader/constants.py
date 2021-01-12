@@ -1,5 +1,6 @@
 import re
 import logging
+import hashlib
 
 class Resource:
     """ Resource """
@@ -11,6 +12,11 @@ class Resource:
     URL = 'Resource-Url'
     TYP = 'Resource-Typ'
 
+    TYPE_URL = 'url'
+    TYPE_REMOTE_FILE = 'remote_file'    # Diesen Typ können wir beim Datenabruf (noch) nicht erkennen, weil CKAN JSON
+    TYPE_UPLOAD = 'uploaded'
+    TYPE_DATASTORE = 'datastore'
+
     # we dont write these to DKAN, they are only in the Excel file:
     HTTP_CODE = 'HTTP-Responsecode'
     HTTP_OK = 'Prüfung OK?'
@@ -20,6 +26,14 @@ class Resource:
 
     def __init__(self, row):
         self._row = row
+
+
+    def getUploadFilename(self):
+        return hashlib.md5(str(self._row[Resource.URL]).encode('utf-8')).hexdigest() + '.csv'
+
+    def getUniqueId(self):
+        return self._row[Resource.URL]
+
 
     @staticmethod
     def create(row):
