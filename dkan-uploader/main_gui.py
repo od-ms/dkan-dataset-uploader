@@ -210,16 +210,21 @@ class MainGui(Frame):
         config.dataset_ids = self.query_input.get()
         has_changed = confighandler.write_config_file()
         if has_changed:
-            tempdir = config.x_temp_dir
-            logging.info(_("Konfiguration wurde geändert. Cacheverzeichnis wird geleert: %s"), tempdir)
-            for filename in os.listdir(tempdir):
-                file_path = os.path.join(tempdir, filename)
-                try:
-                    if (os.path.isfile(file_path) or os.path.islink(file_path)) and file_path.endswith('.json'):
-                        logging.debug(_("Lösche Datei '%s'"), file_path)
-                        os.unlink(file_path)
-                except Exception as e:
-                    logging.warning('Löschen fehlgeschlagen: %s. Grund: %s', file_path, e)
+            logging.debug(_("Konfiguration wurde geändert."))
+            self.clear_temp_dir()
+
+
+    def clear_temp_dir(self):
+        tempdir = config.x_temp_dir
+        logging.info(_("Cacheverzeichnis wird geleert: %s"), tempdir)
+        for filename in os.listdir(tempdir):
+            file_path = os.path.join(tempdir, filename)
+            try:
+                if (os.path.isfile(file_path) or os.path.islink(file_path)) and file_path.endswith('.json'):
+                    logging.debug(_("Lösche Datei '%s'"), file_path)
+                    os.unlink(file_path)
+            except Exception as e:
+                logging.warning('Löschen fehlgeschlagen: %s. Grund: %s', file_path, e)
 
 
     def validate(self, new_text):
@@ -234,17 +239,21 @@ class MainGui(Frame):
         self.message_headline(_('Aktion: DKAN auslesen'))
         # self.download_button.configure(state=DISABLED)
         excelwriter.write(False)
+        self.message_with_time('Aktion fertig: DKAN auslesen')
+
         # self.download_button.configure(state=NORMAL)
 
     def action_status(self):
         self.message_headline(_('Aktion: Systemtest & Status'))
         self.update_config()
         excelwriter.test_and_status(False)
+        self.message_with_time('Aktion fertig: Systemtest & Status')
 
     def action_test(self):
         self.message_headline(_('Aktion: DKAN-API Schreibtest'))
         self.update_config()
         dkan_api_test.test()
+        self.message_with_time('Aktion fertig: DKAN-API Schreibtest')
 
     def action_upload(self):
         result = messagebox.askokcancel(
@@ -256,6 +265,7 @@ class MainGui(Frame):
         if result:
             self.update_config()
             self.message_headline(_('Aktion: DKAN schreiben'))
+            self.clear_temp_dir()
             excelreader.read(False)
 
 

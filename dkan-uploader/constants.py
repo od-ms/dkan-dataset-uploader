@@ -58,8 +58,14 @@ class Resource:
 
         return Resource(row)
 
+
+    def set(self, field, value):
+        self._row[field] = value
+
+
     def getValue(self, valueName):
         return self._row[valueName]
+
 
     def __repr__(self):
         return self._row[Resource.NAME]

@@ -65,11 +65,6 @@ class ExcelReader:
 
     def parse_rows(self, sheet):
 
-        # TODO: datasetuploader expects to get the complete dataset + all its resources!
-        # we need to read all the rows of the current dataset:
-        # A) first row = the dataset + first resource
-        # B) more rows for the other resources, until next dataset begins
-
         last_dataset = None
         resources = []
         for row_nr in range(1, sheet.nrows):
@@ -80,12 +75,12 @@ class ExcelReader:
                 column_name = self.columns_in_file[i]
                 row[column_name] = column_value
 
-            logging.debug("Zeile %s/%s", row_nr, sheet.nrows)
+            logging.info(_("Zeile %s/%s"), row_nr, sheet.nrows)
 
             dataset = constants.Dataset.create(row)
 
             if dataset:
-                logging.debug("last dataset %s", last_dataset)
+                logging.debug("Vorheriger Datensatz: %s", last_dataset)
                 # All resource columns were collected. A new dataset should be created.
                 if last_dataset:
                     self.datasetuploader.processDataset(last_dataset, resources)

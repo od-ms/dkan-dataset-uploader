@@ -206,11 +206,20 @@ def create(data: Dataset):
     #   => DKAN API hat ein Problem mit den Eingabedaten. Wahrscheinlich hat sich das Input-Json-Format geändert.
 
 
-def update(nodeId, data: Dataset):
+def update(dataset: Dataset):
     connect()
-    logging.info(_("Datensatz-Update: '%s'"), data)
-    response = api.node('update', node_id=nodeId, data=getDkanData(data))
-    logging.info(_("Ergebnis: %s"), response.json())
+    logging.info(_("Datensatz-Update: %s"), dataset)
+    response = api.node(
+        'update',
+        node_id=dataset.getValue(Dataset.NODE_ID),
+        data=getDkanData(dataset)
+    )
+    if response.status_code != 200:
+        logging.error(_("Fehler beim Datensatz-Update %s %s"), response, response.content)
+        return None
+
+    logging.info(_("Ergebnis vom Datensatz-Update: %s"), response.json())
+    return dataset.getValue(Dataset.NODE_ID)
 
 
 def remove(nodeId):
