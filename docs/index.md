@@ -42,6 +42,11 @@ Tragen Sie die URL des DKAN-Portals sowie Benutzernamen und Passwort in die ents
 
 Diese Konfiguration wird beim Aufruf einer Aktion automatisch in einer Datei *config.ini* im Anwendungsverzeichnis gespeichert und steht beim nächsten Start der Anwendung wieder zur Verfügung.
 
+### Einstellungen
+
+* *Datensatz-Beschränkung*: Wenn Sie nicht möchten, dass alle Datensätze des DKAN bearbeitet werden, sondern wenn Sie dies auf einzelne Datensätze einschränken möchten, So nutzen Sie dafür das Feld "Datensatz-Beschränkung". Dort können Sie die IDs der Datensätze eintragen, die gelesen oder geschrieben werden sollen. Bei mehreren Datensätzen trennen Sie diese per Komma, z.B.: "aca473a1-f20c-467a-b1ab-021bd93c4962, 2ca04273-af8d-4f47-a7c8-c455a4979354"
+* *Info-Level*: Wenn Sie mehr Informationen über den Ablauf des Programms erhalten möchten, dann können das Info-Level auf "Debug" stellen. Im Fenster für Logmeldungen werden dann in hellgrauer Schrift zusätzliche Statusmeldungen ausgegeben. Dies kann Ihnen z.B. auch bei der Fehlersuche helfen, falls DKAN-Uploader nicht korrekt funktioniert.
+
 ### Export von Datensatz- und Ressourcen-Informationen aus dem DKAN in eine Excel-Datei
 
 Um alle Daten aus dem DKAN in eine Excel-Datei zu exportieren, klicken Sie auf den Button **"DKAN->Excel"**.
@@ -107,6 +112,7 @@ Die Bedienungsanleitung für den Kommandozeilenmodus und die unterschiedlichen v
 * ```Fehler 5005```: *Datensatz konnte nicht 1:1 angelegt werden*\
   Dieser Fehler kann auftreten beim Anlegen eines Test-Datensatzes im DKAN. Dabei wurde dann festgestellt, dass beim Auslesen des gerade erst angelegten Test-Datensatzes einige Feldwerte nicht mit den geschriebenen Werten übereinstimmen. Das muss nicht unbedingt ein Problem sein. Wenn Sie diese Fehlermeldung erhalten, dann sollte im selben Fenster für die Logmeldungen oberhalb der Fehlermeldung eine Zusammenfassung angezeigt werden, welche Felder nicht exakt übereinstimmen. Sie können anhand dieser Logmeldungen übereprüfen, ob der Fehler als problematisch zu bewerten ist. Das passiert z.B. wenn die DKAN Konfiguration geändert wurde, und die Lizenz-Namen nicht mehr übereinstimmen.
 
+* ```Fehler 6000```: In der Excel-Datei wurde eine Spalte nicht gefunden. Das kann z.B. passieren, wenn eine von DKAN benötigte Spalte fehlt, oder einen falschen Titel in der ersten Zeile hat. Prüfen Sie die Titelzeilen der Spalten, möglicherweise ist dort ein Tippfehler. Oder die wichtige Spalte fehlt. Falls Sie das Problem nicht in ihrer Excel-Datei finden, können Sie am besten den DKAN Inhalt in eine andere Excel-Datei downloaden, indem Sie im Feld "Excel-Dateiname" einen neuen, noch nicht verwendeten Dateinamen eingeben und indem Sie dann den Button "DKAN->Excel" anklicken. Es wird eine neue Excel-Datei erstellt, und in dieser Datei können Sie dann in der ersten Zeile sehen, welche Spalten benötigt werden. Vergleichen Sie das mit der Datei die Sie versuchen einzulesen und passen Sie in ihrer Datei die erste Zeile entsprechend an.
 
 ## Nicht unterstützte Datenfelder
 
