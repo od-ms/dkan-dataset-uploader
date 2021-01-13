@@ -10,6 +10,7 @@ from . import config
 from . import excelreader
 from . import excelwriter
 from . import confighandler
+from . import dkanhandler
 from . import dkan_api_test
 
 class LoggingTextHandler(logging.Handler):
@@ -224,6 +225,7 @@ class MainGui(Frame):
         has_changed = confighandler.write_config_file()
         if has_changed:
             logging.debug(_("Konfiguration wurde geändert."))
+            dkanhandler.disconnect()
             self.clear_temp_dir()
 
 

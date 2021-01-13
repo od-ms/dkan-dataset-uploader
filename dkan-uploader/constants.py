@@ -230,18 +230,14 @@ def get_column_config_dataset():
 
     # Some FIELDS ARE MISSING IN "current_package_list_with_resources"
     # How to get them? We have to query:
-    # 1. https://opendata.stadt-muenster.de/api/dataset/node.json?parameters[uuid]=29a3d573-98e1-412c-af0c-c356a07eff7b
+    # 1. https://opendata.stadt.de/api/dataset/node.json?parameters[uuid]=29a3d573-98e1-412c-af0c-c356a07eff7b
     #    => to get the node id
-    # 2. https://opendata.stadt-muenster.de/api/dataset/node/41334.json
+    # 2. https://opendata.stadt.de/api/dataset/node/41334.json
     #    => to get the missing details..
 
-    #   TODO: Der Testdatensatz - da wurden alle Felder mit Daten gefüllt, aber nur teilweise sinnvoll.
-    #           "bevölkerungsindikatoren-soziales" - 3877be7b-5cc8-4d54-adfe-cca0f4368a13 - nodeid 40878
-    #                                            ^ den nachher wieder richtig einstellen!
-    #
     # API links
-    # ckan: https://opendata.stadt-muenster.de/api/3/action/package_show?id=3877be7b-5cc8-4d54-adfe-cca0f4368a13
-    # dkan: https://opendata.stadt-muenster.de/api/dataset/node/40878.json
+    # ckan: https://opendata.stadt.de/api/3/action/package_show?id=3877be7b-5cc8-4d54-adfe-cca0f4368a13
+    # dkan: https://opendata.stadt.de/api/dataset/node/40878.json
 
     # This config describes how the fields will be written from DKAN api response to the excel file.
     #
@@ -250,7 +246,7 @@ def get_column_config_dataset():
     # - value is a "string" => name of this field will be read from current_package_list_with_resources
     #                       @see
     # - value is a list => this key will be read from dkan node.json
-    #                       @see https://opendata.stadt-muenster.de/api/dataset/node/41334.json
+    #                       @see https://opendata.stadt.de/api/dataset/node/41334.json
     # - vaule is uppercase => check the code in excelwriter.py
 
     columns_config = {

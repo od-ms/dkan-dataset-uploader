@@ -171,19 +171,23 @@ def getDkanData(dataset: Dataset):
     return dkanData
 
 
+def disconnect():
+    global api
+    api = None
+
 def connect():
     global api
     if api:
         return ""
 
     try:
-        logging.debug(_("DKAN-Url: %s"), config.dkan_url)
+        logging.debug(_("DKAN-Login: %s @ %s"), config.dkan_username, config.dkan_url)
         # Last parameter is debug mode: True = Debugging ON
         api = DatasetAPI(config.dkan_url, config.dkan_username, config.dkan_password, True)
         return ""
     except LoginError as err:
         logging.error(_("Fehler bei Verbindung zur DKAN-Instanz!"))
-        logging.error(_("Fehlermeldung %s", str(err)))
+        logging.error(_("Fehlermeldung %s"), str(err))
         logging.error(_("Bitte prüfen Sie die angegebenen DKAN-Url und -Zugangsdaten."))
         return "Fehler: " + str(err)
 
