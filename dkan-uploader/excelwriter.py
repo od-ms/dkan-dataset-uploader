@@ -49,7 +49,7 @@ class ExcelResultFile:
             so we can then write it to a "new" file (=to continue from where we left off)
             Also return all dataset_ids as dict, so we can skip them
         """
-        logging.info(_("Lese Excel-Datei: %s"), self.filename)
+        logging.info(_("Öffne Excel-Datei: %s"), self.filename)
         loc = (self.filename)
         self.existing_dataset_ids = {}
         old_excel_content = []
@@ -70,11 +70,10 @@ class ExcelResultFile:
                     all_dkan_rows.remove(column_header)
 
             if all_dkan_rows:
-                logging.warning(_("Fehlende Felder in Excel-Datei: {}"), all_dkan_rows)
-                raise AbortProgramError(
-                    _("Es fehlt möglicherweise ein wichtiges DKAN-Feld in Ihrer Excel-Datei. Fügen Sie bitte die fehlende(n) Spalte(n) hinzu. Laden Sie den DKAN Inhalt am besten in eine andere Excel-Datei"
-                        + " (z.B. geben Sie einen Dateinamen an, der noch nicht existiert, und vergleichen Sie dann die Spalten der beiden Dateien)"
-                    ))
+                logging.error(_("Fehler #6000: Es wurde mindestens ein DKAN-Feld bzw. eine benötigte Spalte nicht in der Excel-Datei gefunden."))
+                logging.error(_("Fehlende Spalten in der Excel-Datei:"))
+                logging.error(_("%s"), all_dkan_rows)
+                raise AbortProgramError(_("Fügen Sie bitte die fehlenden(n) Spalte(n) zur Excel-Datei hinzu (s.o.). "))
 
             for j in range(1, sheet.nrows):
                 excelrow = []
@@ -89,12 +88,12 @@ class ExcelResultFile:
                 if dataset_id:
                     self.existing_dataset_ids[dataset_id] = True
 
+            self.initialize_new_excel_file(self.column_mapping)
+
         except FileNotFoundError:
-            logging.info(_("Excel-Datei existiert noch nicht: %s"), self.filename)
+            logging.info(_("Excel-Datei existiert noch nicht und wird erstellt: %s"), self.filename)
             self.column_mapping = list(self.get_column_config_dataset().keys()) + list(self.get_column_config_resource().keys())
-
-
-        self.initialize_new_excel_file()
+            self.initialize_new_excel_file(self.get_column_config())
 
         for row in old_excel_content:
             self.add_plain_row(row)
@@ -107,7 +106,7 @@ class ExcelResultFile:
         return self.existing_dataset_ids
 
 
-    def initialize_new_excel_file(self):
+    def initialize_new_excel_file(self, first_row):
 
         # init workbook objects
         self.workbook = xlsxwriter.Workbook(self.filename)
@@ -120,7 +119,7 @@ class ExcelResultFile:
         self.worksheet.set_column('E:AA', None, None, {'level': 1})
 
         # write header row
-        self.worksheet.write_row('A1', self.get_column_config(), self.bold)
+        self.worksheet.write_row('A1', first_row, self.bold)
 
 
     def get_column_config(self):
@@ -432,7 +431,7 @@ class Dkan2Excel:
         for package_data in data['result'][0]:
             dkanApi.add_extras_from_package(extras, package_data)
 
-        logging.info(_("Alle 'additional-info'-Felder der DKAN-Instanz: %s"), extras)
+        logging.debug(_("Alle 'Additional-Info'-Felder der DKAN-Instanz: %s"), extras)
         return extras
 
 
@@ -449,6 +448,7 @@ class Dkan2Excel:
         excel_file.initialize_new_excel_file_with_existing_content()
 
         existing_dataset_ids = excel_file.get_existing_dataset_ids()
+        nr_of_changes = 0
 
         # write all datasets and resources to excel file
         for package_data in data['result'][0]:
@@ -491,10 +491,12 @@ class Dkan2Excel:
                     package_data['resources'][index]['response_code'] = response_code
 
             excel_file.add_dataset(package_data, node_data)
+            nr_of_changes += 1
+
 
         excel_file.finish()
         logging.info("")
-        logging.info(_('Vorgang abgeschlossen.'))
+        logging.info(_('Vorgang abgeschlossen, %s Datensätze geschrieben.'), nr_of_changes)
 
 
 
@@ -536,7 +538,8 @@ def validate_single_dataset_row(source_row, source_node_id):
     logging.debug(json.dumps(result_row, indent=2))
 
     change_ok = [
-        'Dataset-Name', 'URL', 'Created', 'Modified', 'Resource-ID'
+        constants.Dataset.NAME, constants.Dataset.URL, constants.Dataset.DATE_CREATED, constants.Dataset.DATE_MODIFIED,
+        constants.Resource.RESOURCE_ID, constants.Resource.LFD_NR
     ]
     for key, value in source_row.items():
         if not key in result_row:
