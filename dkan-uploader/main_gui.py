@@ -162,12 +162,16 @@ class MainGui(Frame):
 
         currentRow +=1
         Label(master, text="Optionen:").grid(row=currentRow, column=0, sticky=E, pady=(y_spacing, 0))
-        self.skip_resources = IntVar()
+        self.skip_resources = IntVar(value=(1 if config.skip_resources else 0))
         Checkbutton(master, text = "Nur Datensätze, keine Ressourcen",variable = self.skip_resources).grid(row=currentRow, column=1, columnspan=2,  sticky=W)
 
         currentRow +=1
-        self.check_resources = IntVar()
+        self.check_resources = IntVar(value=(1 if config.check_resources else 0))
         Checkbutton(master, text = "Ressourcen beim Download überprüfen",variable = self.check_resources).grid(row=currentRow, column=1, columnspan=2,  sticky=W)
+
+        currentRow +=1
+        self.detailed_resources = IntVar(value=(1 if config.detailed_resources else 0))
+        Checkbutton(master, text = _("Detaillierte Ressourcen"),variable = self.detailed_resources).grid(row=currentRow, column=1, columnspan=2,  sticky=W)
 
         currentRow += 1
         self.download_button = Button(master, text="DKAN -> Excel", command=self.action_download)
@@ -218,6 +222,7 @@ class MainGui(Frame):
         config.excel_filename = self.filename_input.get()
         config.check_resources = self.check_resources.get()
         config.skip_resources = self.skip_resources.get()
+        config.detailed_resources = self.detailed_resources.get()
         config.dataset_ids = self.query_input.get()
         config.message_level = self.message_level.get()
         logging.info("Log level: %s", config.message_level)
@@ -272,16 +277,15 @@ class MainGui(Frame):
 
     def action_upload(self):
         result = messagebox.askokcancel(
-            _("Daten in DKAN-Instanz schreiben"),
-            _("In Ihrer DKAN-Instanz werden nun die Datensätze aus der Excel-Datei '{}' angelegt.\
-                Dabei werden ggf. Daten überschrieben. Wollen Sie wirklich fortfahren?".format(config.excel_filename))
-            )
-
+            _("In DKAN-Instanz schreiben"),
+            _("Die Datensätze aus der Excel-Datei werden nun ins DKAN geschrieben.\n\nWirklich fortfahren?"))
         if result:
             self.update_config()
             self.message_headline(_('Aktion: DKAN schreiben'))
             self.clear_temp_dir()
             excelreader.read(False)
+            self.clear_temp_dir()
+            self.message_with_time('Aktion fertig: DKAN schreiben')
 
 
     def message_headline(self, message):
@@ -301,8 +305,16 @@ class MainGui(Frame):
 
 
 
+
 def show():
     root = Tk()
 
-    MainGui(root)
+    mm = MainGui(root)
+
+    def on_closing():
+        mm.update_config()
+        root.destroy()
+
+    root.protocol("WM_DELETE_WINDOW", on_closing)
+
     root.mainloop()

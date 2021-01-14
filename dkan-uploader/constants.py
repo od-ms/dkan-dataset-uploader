@@ -1,6 +1,7 @@
 import re
 import logging
 import hashlib
+from . import config
 
 class Resource:
     """ Resource """
@@ -12,6 +13,14 @@ class Resource:
     URL = 'Resource-Url'
     TYP = 'Resource-Typ'
 
+    # Detaillierte Ressourcenfelder
+    STICKY = 'Sticky'               # 1 = "Oben in Listen", 0 = sonst
+    COMMENTS = 'Kommentare-Status'  # 1 = Geschlossen, 2 = Öffnen
+    PUBLISHED = 'Veröffentlicht?'   # 1 = Veröffentlicht,  0 = Nicht veröffentlicht
+    FRONTPAGE = 'Startseite'        # 1 = "Auf der Startseite", 0 = sonst
+    IS_DETAILED = 'Rs-Detail'
+
+    # Resource Typen
     TYPE_URL = 'url'
     TYPE_REMOTE_FILE = 'remote_file'    # Diesen Typ können wir beim Datenabruf (noch) nicht erkennen, weil CKAN JSON
     TYPE_UPLOAD = 'uploaded'
@@ -46,17 +55,20 @@ class Resource:
                 count_non_empty_dataset_fields += 1
             else:
                 logging.debug("  -  %s", column)
-        logging.info(_(" Gefundende Ressource-Felder: %s/%s"), count_non_empty_dataset_fields, len(get_column_config_resource()))
 
         if count_non_empty_dataset_fields < 1:
             return None
 
         # Check if mandatory fields are set
         if not Resource.NAME in row:
-            logging.warning(_(' PflichtFeld fehlt: %s'), Resource.NAME)
+            logging.warning(_(' Resource-Felder gefunden, aber Pflichtfeld fehlt: %s'), Resource.NAME)
             return None
 
+        logging.info(_(" Resource-Felder: %s/%s ('%s')"), count_non_empty_dataset_fields, len(get_column_config_resource()), row[Resource.NAME])
         return Resource(row)
+
+
+
 
 
     def set(self, field, value):
@@ -79,7 +91,7 @@ class Resource:
         known_columns = get_column_config_resource()
         for member in members:
             if not member in known_columns:
-                raise RuntimeError(_('Programmierfehler: Dataset-Objekt nutzt eine Spalte "{}" die es garnicht gibt.').format(member))
+                raise RuntimeError(_('Programmfehler: Dataset-Objekt nutzt eine Spalte "{}" die es garnicht gibt.').format(member))
         for column in known_columns:
             if not column in members:
                 raise RuntimeError(_("DKAN-Spalte {} fehlt in Dataset class definition.").format(column))
@@ -141,10 +153,8 @@ class Dataset:
             if field[:6] == 'Extra-':
                 logging.debug(" [.] Extra-Spalte '%s': '%s'", field[6:], value)
 
-        logging.info(_(" Gefundende Datensatz-Felder: %s/%s"), count_non_empty_dataset_fields, len(get_column_config_dataset()))
         if count_non_empty_dataset_fields < 3:
             return None
-
 
         # Check if mandatory fields are set
         mandatory_fields = [
@@ -153,10 +163,12 @@ class Dataset:
             ]
         for field in mandatory_fields:
             if not field in row:
-                logging.warning(_(' Datensatz-Pflichtfeld fehlt: %s'), field)
+                logging.warning(_(' Datensatz gefunden, aber Spalte wird ignoriert weil Datensatz-Pflichtfeld fehlt: %s'), field)
                 return None
 
         new_object = Dataset(row)
+        logging.info(_(" Datensatz-Felder: %s/%s ('%s')"), count_non_empty_dataset_fields, len(get_column_config_dataset()), new_object.getValue(Dataset.TITLE))
+
         return new_object
 
     @staticmethod
@@ -213,7 +225,7 @@ class Dataset:
 
 
     def __str__(self):
-        return self._row[Dataset.TITLE]
+        return '{} ({})'.format(self._row[Dataset.TITLE], self._row[Dataset.DATASET_ID])
 
 
 
@@ -299,6 +311,19 @@ def get_column_config_dataset():
     return columns_config
 
 
+def get_column_config_resource_detailed():
+    detailed_columns = {
+        'Sticky': ['sticky'],               # 1 = "Oben in Listen", 0 = sonst
+        'Kommentare-Status': ['comment'],   # 1 = Geschlossen, 2 = Öffnen
+        'Veröffentlicht?': ['status'],      # 1 = Veröffentlicht,  0 = Nicht veröffentlicht
+        'Startseite': ['promote'],          # 1 = "Auf der Startseite", 0 = sonst
+        'Resource-Typ': 'RTYPE_DETAILED',
+    }
+    return detailed_columns
+
+
+
+
 def get_column_config_resource():
     """ All columns of DKAN resources in our excel file"""
 
@@ -318,10 +343,6 @@ def get_column_config_resource():
         'Beschreibung': 'description',
         'Prüfung OK?': 'response_ok',       # specific for DKAN-Downloader
         'HTTP-Responsecode':'response_code', # specific for DKAN-Downloader
-    #    'Resource-Status': ['status'], # 1=Veröffentlicht, 0=Nicht veröffentlicht
-    #    'Startseite': ['promote'], # 1 = "Auf der Startseite", 0 = sonst
-    #    'Oben': ['sticky'], # 1 = "Oben in Listen", 0 = sonst
-    #    'Resource-Kommentare': ['comment'], # 1 = Geschlossen, 2 = Öffnen
 
     #       field_link_api	[]
     #       field_link_remote_file	[]
@@ -330,6 +351,9 @@ def get_column_config_resource():
 
     #       "URL-Alias-Einstellungen" => finden sich NICHT im API response der ressource wieder
     }
+
+    if config.detailed_resources:
+        del columns['Resource-Typ']
 
     return columns
 

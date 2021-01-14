@@ -346,20 +346,20 @@ def createResource(resource: Resource, nid, title):
 
 def createResourceFromData(data):
     connect()
-    print("[create]", data['title'])
+    logging.info(_(" '-> [wird erstellt] %s"), data['title'])
     r = api.node('create', data=data)
     if r.status_code != 200:
         raise Exception('Error during create resource:', r, r.text)
     resourceResponse = r.json()
     newResourceNodeId = resourceResponse['nid']
-    print(newResourceNodeId, "[created]")
+    logging.debug(_('Neue Resource wurde erstellt: %s'), newResourceNodeId)
     handleFileUpload(data, newResourceNodeId)
 
 
 def updateResource(data, existingResource):
     connect()
     nodeId = existingResource['nid']
-    print("[update]", nodeId, data['title'])
+    logging.info(_(" '-> [aktualisiere] %s %s"), nodeId, data['title'])
     if 'upload_file' in data:
         # There seems to be a bug in DKAN:
         # I did not manage to update a resource that has an uploaded file.
@@ -375,15 +375,15 @@ def updateResource(data, existingResource):
             body2 = removeHtml.sub('', existingResource['body']['und'][0]['value'])
 
         if (data['title'] != existingResource['title']) or (body1 != body2):
-            print("[DELETE NODE AND RECREATE] (required if changes in name or description of resources with file uploads)")
-            print('newtitle:', data['title'])
-            print('oldTitle:', existingResource['title'])
-            print("newBody:", body1)
-            print("oldBody", body2)
+            logging.debug("[DELETE NODE AND RECREATE] (required if changes in name or description of resources with file uploads)")
+            logging.debug('newtitle: %s', data['title'])
+            logging.debug('oldTitle: %s', existingResource['title'])
+            logging.debug("newBody: %s", body1)
+            logging.debug("oldBody: %s", body2)
 
             response = api.node('delete', node_id=nodeId)
             if response.status_code != 200:
-                print("ERROR", response, response.content)
+                logging.error(_("Fehler: %s - %s"), response, response.content)
                 raise Exception('Error during resource update:', response, response.text)
 
             createResourceFromData(data)
@@ -392,7 +392,7 @@ def updateResource(data, existingResource):
     else:
         r = api.node('update', node_id=nodeId, data=data)
         if r.status_code != 200:
-            print("ERROR", r, r.content)
+            logging.error(_("ERROR %s %s"), r, r.content)
             raise Exception('Error during resource update:', r, r.text)
 
 
@@ -424,12 +424,12 @@ def handleFileUpload(data, nodeId):
 
 def updateResources(newResources:List[Resource], existingResources, dataset, forceUpdate):
     connect()
-    logging.info("CHECKING RESOURCES")
+    logging.info(_("Prüfe bestehende Resourcen:"))
 
     for existingResource in existingResources:
-        logging.info("resource %s", existingResource['target_id'])
-        # TODO: existingResource is crap, because it's only a list of target_ids!
-        # TODO: Don't use existingResource, use resourceData instead!
+        logging.info(_("  Resource-ID %s"), existingResource['target_id'])
+        # ^ existingResource is crap, because it's only a list of target_ids!
+        # Don't use existingResource, use resourceData instead!
 
         resourceData = getDatasetDetails(existingResource['target_id'])
         if "und" in resourceData['field_link_api']:
@@ -439,7 +439,7 @@ def updateResources(newResources:List[Resource], existingResources, dataset, for
         elif 'und' in resourceData['field_upload']:
             uniqueId = resourceData['field_upload']['und'][0]['filename']
         else:
-            logging.debug("[EXISTING RESOURCE WITHOUT URL -> MAKES NO SENSE -> DELETE]")
+            logging.debug(_("'-> [keine URL] Resourcen ohne URLS werden nicht unterstützt. Lösche Resource."))
             uniqueId = resourceData['nid']
 
 
@@ -457,12 +457,12 @@ def updateResources(newResources:List[Resource], existingResources, dataset, for
             if (newData['title'] != resourceData['title']) or forceUpdate:
                 updateResource(newData, resourceData)
             else:
-                logging.info("  [no-change] %s", newResource)
+                logging.info(_("  '-> [nicht geändert] %s"), newResource)
         else:
             # This seems to be an old url that we dont want anymore => delete it
-            logging.info("  [remove] %s", existingResource)
+            logging.info(_("  '-> [löschen] %s"), existingResource)
             op = api.node('delete', node_id=existingResource['target_id'])
-            logging.debug("result status=%s, text=%s", op.status_code, op.text)
+            logging.debug(_("Ergebnis: Status=%s, Text=%s"), op.status_code, op.text)
 
     # Create new resources
     for resource in newResources:

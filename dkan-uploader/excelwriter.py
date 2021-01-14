@@ -125,7 +125,9 @@ class ExcelResultFile:
     def get_column_config(self):
         columns = list(self.get_column_config_dataset().keys())
         if not config.skip_resources:
-            columns.extend(self.get_column_config_resource().keys())
+            columns.extend(constants.get_column_config_resource().keys())
+        if config.detailed_resources:
+            columns.extend(constants.get_column_config_resource_detailed().keys())
         return columns
 
 
@@ -261,30 +263,13 @@ class ExcelResultFile:
         # write resource rows
         else:
             all_the_rows = []
-
-
-            # #################################################################
-            # TODO: Hier könnte man statt dessen die dkan node
-            # für jede resource holen, um herauszufinden um welchen url-typ es sich handelt.
-            # dann dauert es nur länger weil wir für jede resource einen weiteren request zum server machen müssen
-            #
-            # Das würde so gehen:
-            #   dkanhelpers.HttpHelper.read_dkan_node(resource_node_id):
-            #   api_url = self.get_nested_json_value(resource_node, ["field_link_api", 'und', 0, 'url'])
-            #   remote_file = self.get_nested_json_value(resource_node, ["field_link_remote_file", 'und', 0, 'uri'])
-            #   uploaded_file = self.get_nested_json_value(resource_node, ["field_upload", 'und', 0, 'filename'])
-            #   und entsprechend könnte man dann auch folgenden typ unterscheiden:
-            #       constants.Resource.TYPE_REMOTE_FILE
-            # #################################################################
-
             for resource_number, resource in enumerate(package_data['resources']):
+                resource_package_id = resource['id']
                 resource_row = {}
+
                 # get all resource fields according to resource column config
                 for column_name, rc_key in constants.get_column_config_resource().items():
                     rc_value = ""
-                    if isinstance(rc_key, list):
-                        raise AbortProgramError(_('Abruf von Resource-Node-Daten ist noch nicht implementiert.'))
-
                     if rc_key == 'lfd-nr':
                         rc_value = str(self.current_dataset_nr) + '-' + str(resource_number+1)
 
@@ -306,6 +291,31 @@ class ExcelResultFile:
                             logging.error(_('Key "%s" nicht gefunden: %s'), rc_key, resource)
 
                     resource_row[column_name] = rc_value
+
+                if config.detailed_resources:
+                    resource_node_id = DkanApiAccess.get_node_id_for_package_id(resource_package_id)
+                    resource_node = dkanhelpers.HttpHelper.read_dkan_node(resource_node_id)
+                    for column_name, rc_key in constants.get_column_config_resource_detailed().items():
+                        rc_value = ""
+                        if isinstance(rc_key, list):
+                            rc_value = self.get_nested_json_value(resource_node, rc_key)
+                        elif rc_key == 'RTYPE_DETAILED':
+                            if self.get_nested_json_value(resource_node, ["field_link_api", 'und', 0, 'url']):
+                                rc_value = constants.Resource.TYPE_URL
+                            elif self.get_nested_json_value(resource_node, ["field_link_remote_file", 'und', 0, 'uri']):
+                                rc_value = constants.Resource.TYPE_REMOTE_FILE
+                            elif self.get_nested_json_value(resource_node, ["field_upload", 'und', 0, 'filename']):
+                                rc_value = constants.Resource.TYPE_UPLOAD
+                            elif self.get_nested_json_value(resource_node, ["field_datastore_status", 'und', 0, 'filename']):
+                                rc_value = constants.Resource.TYPE_DATASTORE
+                        else:
+                            try:
+                                rc_value = resource_node[rc_key]
+                            except KeyError:
+                                logging.error(_('Key "%s" nicht gefunden: %s'), rc_key, resource)
+
+                        resource_row[column_name] = rc_value
+
 
                 logging.debug(_(
                     "Ressource %s: %s %s"),
@@ -339,6 +349,14 @@ class ExcelResultFile:
 class DkanApiAccess:
     """Check status of a resource"""
 
+    @staticmethod
+    def get_node_id_for_package_id(package_id):
+        node_search = dkanhelpers.HttpHelper.read_remote_json_with_cache(config.x_api_find_node_id.format(package_id), '{}.json'.format(package_id))
+        if node_search[0]['nid']:
+            return node_search[0]['nid']
+        return None
+
+
     def get_resource_http_status(self, url):
         try:
             htl = httplib2.Http(".cache", disable_ssl_certificate_validation=True)
@@ -367,9 +385,7 @@ class DkanApiAccess:
         node_data = None
 
         if not node_id:
-            node_search = self.read_remote_json_with_cache(config.x_api_find_node_id.format(package_id), '{}.json'.format(package_id))
-            if node_search[0]['nid']:
-                node_id = node_search[0]['nid']
+            node_id = DkanApiAccess.get_node_id_for_package_id(package_id)
 
         if not node_id:
             raise AbortProgramError(_('Node-ID zu Package-ID {} fehlt oder konnte nicht gefunden werden.').format(package_id))
@@ -496,7 +512,7 @@ class Dkan2Excel:
 
         excel_file.finish()
         logging.info("")
-        logging.info(_('Vorgang abgeschlossen, %s Datensätze geschrieben.'), nr_of_changes)
+        logging.info(_('Vorgang abgeschlossen, %s Datensätze nach Excel geschrieben.'), nr_of_changes)
 
 
 

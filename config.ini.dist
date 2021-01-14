@@ -9,6 +9,8 @@ filename = dkan_resources.xlsx
 [features]
 skip_resources = No
 check_resources = No
+detailed_resources = No
+
 
 [api]
 package_details = /api/3/action/package_show?id=

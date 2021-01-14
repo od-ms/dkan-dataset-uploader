@@ -32,7 +32,7 @@ class DatasetUploader:
         if not dataset:
             raise Exception(_("Fehler: Kein Datensatz zum Erstellen in datasetuploader.processDataset()"))
 
-        logging.info(_("Bearbeite Datensatz: %s"), dataset)
+        logging.info(_("Bearbeite Datensatz: '%s'"), dataset)
         logging.debug(_("Resourcen: %s"), resources)
 
         node_id = dataset.getValue(Dataset.NODE_ID)
@@ -72,7 +72,7 @@ class DatasetUploader:
 
         # TODO remove this if diff is always empty
         raw_dataset2 = dkanhelpers.HttpHelper.read_dkan_node(node_id)
-        logging.debug(_(" == Dieser Datensatz-Diff sollte leer sein: == "))
+        logging.debug(_(" == Datensatz-Änderung: == "))
         logging.debug(diff(raw_dataset, raw_dataset2))
 
         self.processResources(raw_dataset, resources)
@@ -84,11 +84,11 @@ class DatasetUploader:
         node_id = dataset.getValue(Dataset.NODE_ID)
 
         if config.dataset_ids and (config.dataset_ids.find(package_id) == -1):
-            logging.debug(_("%s nicht in Abfrage '%s'"), package_id, config.dataset_ids)
+            logging.info(_("Wird übersprungen wegen Datensatz-Beschränkung: '%s' nicht in '%s'"), package_id, config.dataset_ids)
             return '-'
 
         elif config.dataset_ids:
-            logging.info(_("Datensatz gefunden: %s(%s) ist in '%s'"), package_id, node_id, config.dataset_ids)
+            logging.info(_("Datensatz-Beschränkung passt: %s(%s) ist in '%s'"), package_id, node_id, config.dataset_ids)
             return dkanhandler.update(dataset)
 
         else:

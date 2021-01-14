@@ -27,6 +27,7 @@ def read_config_file():
             config.excel_filename = config_ini['excel']['filename']
             config.skip_resources = config_ini.getboolean('features','skip_resources')
             config.check_resources = config_ini.getboolean('features','check_resources')
+            config.detailed_resources = config_ini.getboolean('features','detailed_resources')
             config.dataset_ids = config_ini['features']['dataset_ids']
             config.message_level = config_ini['features']['message_level']
         except:
@@ -63,6 +64,7 @@ def write_config_file():
     config_ini.set('excel', 'filename', config.excel_filename)
     config_ini.set('features', 'skip_resources', 'Yes' if config.skip_resources else 'No')
     config_ini.set('features', 'check_resources', 'Yes' if config.check_resources else 'No')
+    config_ini.set('features', 'detailed_resources', 'Yes' if config.detailed_resources else 'No')
     config_ini.set('features', 'dataset_ids', config.dataset_ids)
     config_ini.set('features', 'message_level', config.message_level)
 
