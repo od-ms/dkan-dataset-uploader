@@ -12,6 +12,7 @@ from . import excelwriter
 from . import confighandler
 from . import dkanhandler
 from . import dkan_api_test
+from .constants import AbortProgramError
 
 class LoggingTextHandler(logging.Handler):
     """This class allows you to log to a Tkinter Text or ScrolledText widget"""
@@ -236,7 +237,7 @@ class MainGui(Frame):
 
     def clear_temp_dir(self):
         tempdir = config.x_temp_dir
-        logging.info(_("Cacheverzeichnis wird geleert: %s"), tempdir)
+        logging.debug(_("Cacheverzeichnis wird geleert: %s"), tempdir)
         for filename in os.listdir(tempdir):
             file_path = os.path.join(tempdir, filename)
             try:
@@ -258,7 +259,11 @@ class MainGui(Frame):
         self.update_config()
         self.message_headline(_('Aktion: DKAN auslesen'))
         # self.download_button.configure(state=DISABLED)
-        excelwriter.write(False)
+        try:
+            excelwriter.write(False)
+        except AbortProgramError as err:
+            logging.error(err.message)
+
         self.message_with_time('Aktion fertig: DKAN auslesen')
 
         # self.download_button.configure(state=NORMAL)
@@ -283,7 +288,11 @@ class MainGui(Frame):
             self.update_config()
             self.message_headline(_('Aktion: DKAN schreiben'))
             self.clear_temp_dir()
-            excelreader.read(False)
+            try:
+                excelreader.read(False)
+            except AbortProgramError as err:
+                logging.error(err.message)
+
             self.clear_temp_dir()
             self.message_with_time('Aktion fertig: DKAN schreiben')
 
