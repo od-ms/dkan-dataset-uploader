@@ -22,7 +22,7 @@ log_now = datetime.now() # current date and time
 log_filename = log_now.strftime("%Y-%m-%d_%H%M%S.log")
 log_file = os.path.normpath(config.x_log_dir + log_filename)
 log_handler = logging.FileHandler(log_file, mode='a')
-log_formatter = logging.Formatter('%(asctime)s %(levelname)s\t%(message)s'), datefmt='%I:%M:%S')
+log_formatter = logging.Formatter('%(asctime)s %(levelname)s\t%(message)s', datefmt='%I:%M:%S')
 log_handler.setFormatter(log_formatter)
 log_handler.setLevel(logging.DEBUG)
 logger = logging.getLogger()
@@ -46,12 +46,16 @@ class DkanUploader:
             config.dataset_ids = args.ids
 
         if args.download:
+            logging.info("== Running commandline mode: DOWNLOAD ==")
             excelwriter.write(args.filename)
         elif args.upload:
+            logging.info("== Running commandline mode: UPLOAD ==")
             excelreader.read(args.filename)
         elif args.testwrite:
+            logging.info("== Running commandline mode: ANALYZE-API ==")
             dkan_api_test.analyze()
         elif args.node_id:
+            logging.info("== Running commandline mode: ANALYZE-NODE %s ==", args.node_id)
             dkan_api_test.validate(args.node_id)
 
         else:
@@ -63,6 +67,8 @@ class DkanUploader:
     @staticmethod
     def get_commandline_args():
         """Read command line args or show help text"""
+
+        logging.info("== Running commandline mode: HELPMESSAGE ==")
 
         # Print usage instructions
         parser = argparse.ArgumentParser(

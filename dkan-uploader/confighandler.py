@@ -19,7 +19,12 @@ def read_config_file():
         logging.warning('Starting with empty config')
     else:
         for section in config_ini.sections():
-            logging.debug('config: %s %s', section, dict(config_ini[section]))
+            config_debug = dict(config_ini[section])
+            if 'password' in config_debug:
+                config_debug['password'] = '...'
+            if 'username' in config_debug:
+                config_debug['username'] = '{}...'.format(config_debug['username'][:5])
+            logging.debug('config: %s %s', section, config_debug)
         try:
             config.dkan_url = config_ini['dkan']['dkan_url']
             config.dkan_username = config_ini['dkan']['username']
