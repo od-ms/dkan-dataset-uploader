@@ -228,7 +228,9 @@ class Dataset:
 
 
     def __str__(self):
-        return '{} ({})'.format(self._row[Dataset.TITLE], self._row[Dataset.DATASET_ID])
+        return '{} ({})'.format(
+            self._row[Dataset.TITLE] if Dataset.TITLE in self._row else 'Ohne Titel',
+            self._row[Dataset.DATASET_ID] if Dataset.DATASET_ID in self._row else 'Ohne ID')
 
 
 class AbortProgramError(RuntimeError):

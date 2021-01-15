@@ -184,7 +184,7 @@ class ExcelResultFile:
         return '?'
 
 
-    def convert_dkan_data_to_excel_row_hash(self, package_data, dkan_node):
+    def convert_dkan_data_to_excel_row_hash(self, package_data, dkan_node, skip_resources):
         #logging.debug("package_data %s", package_data)
         #logging.debug("dkan_node %s", dkan_node)
 
@@ -250,7 +250,7 @@ class ExcelResultFile:
             columns[column_name] = value
 
         # write package_data row without resources
-        if (config.skip_resources) or ('resources' not in package_data):
+        if (skip_resources) or ('resources' not in package_data):
             return [columns]
 
         # write resource rows
@@ -326,7 +326,7 @@ class ExcelResultFile:
 
     def add_dataset(self, package_data, dkan_node):
         self.current_dataset_nr += 1
-        rows = self.convert_dkan_data_to_excel_row_hash(package_data, dkan_node)
+        rows = self.convert_dkan_data_to_excel_row_hash(package_data, dkan_node, config.skip_resources)
         for row in rows:
             excel_row = []
             for key in self.column_mapping:
@@ -532,7 +532,7 @@ def validate_single_dataset_row(source_row, source_node_id):
     print(json.dumps(package_data, indent=2))
 
     excel_file = ExcelResultFile("dummy.xlsx", extra_columns)
-    result_rows = excel_file.convert_dkan_data_to_excel_row_hash(package_data, node_data)
+    result_rows = excel_file.convert_dkan_data_to_excel_row_hash(package_data, node_data, False)
     result_row = result_rows[0]
 
     error_fields = {}
