@@ -84,7 +84,7 @@ class ExcelResultFile:
             self.initialize_new_excel_file(self.column_mapping)
 
         except FileNotFoundError:
-            logging.info(_("Excel-Datei existiert noch nicht und wird erstellt: %s"), self.filename)
+            logging.info(_("Excel-Datei existiert noch nicht und wird erstellt."))
             self.column_mapping = list(self.get_column_config_dataset().keys()) + list(self.get_column_config_resource().keys())
             self.initialize_new_excel_file(self.get_column_config())
 
@@ -101,15 +101,36 @@ class ExcelResultFile:
 
     def initialize_new_excel_file(self, first_row):
 
+        # find "extra"-columns start & end to make them retractable in the excel
+        extra_start = 0
+        extra_end = len(first_row)-1
+        column_nr = 0
+        for column_title in first_row:
+            if column_title[:6] == 'Extra-':
+                if not extra_start:
+                    extra_start = column_nr
+            elif extra_start:
+                extra_end = column_nr
+            column_nr += 1
+        logging.debug("rooo %s", first_row)
+        logging.debug("EXTRA %s-%s", extra_start, extra_end)
+
         # init workbook objects
         self.workbook = xlsxwriter.Workbook(self.filename)
         self.worksheet = self.workbook.add_worksheet()
         self.bold = self.workbook.add_format({'bold': True})
+        self.small_font = self.workbook.add_format({'font_size': 8})
         self.worksheet.set_column('A:A', 15)
-        self.worksheet.set_column('C:C', 5)
+        self.worksheet.set_column('C:C', 20)
+        self.worksheet.set_column(first_col=0, last_col=0, cell_format=self.small_font)
 
         # Add group ("level: 1") to some columns so that they are "einklappbar"
-        self.worksheet.set_column('E:AA', None, None, {'level': 1})
+        self.worksheet.set_column('D:F', 16, None, {'level': 1})            # Tags, Groups, Schlagworte
+        self.worksheet.set_column('G:G', 30, self.small_font, {'level': 1}) # Description
+        self.worksheet.set_column('H:H', 10, None, {'level': 1})
+        self.worksheet.set_column('J:AD', None, None, {'level': 1})
+        if extra_start and extra_end:
+            self.worksheet.set_column(extra_start, extra_end, None, None, {'level': 1})
 
         # write header row
         self.worksheet.write_row('A1', first_row, self.bold)
@@ -327,6 +348,13 @@ class ExcelResultFile:
     def add_dataset(self, package_data, dkan_node):
         self.current_dataset_nr += 1
         rows = self.convert_dkan_data_to_excel_row_hash(package_data, dkan_node, config.skip_resources)
+        if rows:
+            row = rows[0]
+            logging.info(
+                _('Datensatz %s hinzufügen: "%s"'),
+                self.current_dataset_nr,
+                row[constants.Dataset.TITLE] if constants.Dataset.TITLE in row else 'Kein Titel')
+
         for row in rows:
             excel_row = []
             for key in self.column_mapping:
@@ -451,6 +479,9 @@ class Dkan2Excel:
 
         dkanApi = DkanApiAccess()
         data = dkanApi.read_package_list_with_resources()
+        number_of_datasets = len(data['result'][0])
+        logging.info("Anzahl Datensätze im DKAN: %s", number_of_datasets)
+
         extra_columns = self.read_all_extra_fields_from_dkan(dkanApi, data)
 
         excel_file = ExcelResultFile(excel_filename, extra_columns)
@@ -547,7 +578,13 @@ def validate_single_dataset_row(source_row, source_node_id):
         constants.Dataset.NAME, constants.Dataset.URL, constants.Dataset.DATE_CREATED, constants.Dataset.DATE_MODIFIED,
         constants.Resource.RESOURCE_ID, constants.Resource.LFD_NR
     ]
+
+    dkan_fields = {**constants.get_column_config_dataset(), **constants.get_column_config_resource(), **constants.get_column_config_resource_detailed()}
+
     for key, value in source_row.items():
+        if key in dkan_fields:
+            del dkan_fields[key]
+
         if not key in result_row:
             if key[:6] == "Extra-":
                 logging.info(_(' o "%s" OK, leer'), key)
@@ -562,6 +599,10 @@ def validate_single_dataset_row(source_row, source_node_id):
                 logging.warning(_(' x "%s" erwartet "%s", bekommen "%s"'), key, value, result_row[key])
         else:
             logging.info(_(' o "%s" OK'), key)
+
+    for key in dkan_fields.keys():
+        logging.info(_(' - "%s" nicht getestet'), key)
+
 
     return error_fields
 
@@ -650,7 +691,6 @@ def test_and_status(command_line_excel_filename):
 
     logging.info("")
     logging.info(_('Tests abgeschlossen.'))
-
 
 
 

@@ -277,8 +277,14 @@ def get_column_config_dataset():
     columns_config = {
         'Dataset-ID': "id",
         'Node-ID': ["nid"],
-        'Dataset-Name': "name",
         'Titel': "title",
+        'Groups': 'COLLECT|groups.title',
+        'Tags': 'CATEGORIES',
+        'Description': "notes",
+        'Textformat': ["body", "und", 0, "format"],
+        'Homepage URL': ['field_landing_page', 'und', 0, 'url'],
+        'Dataset-Name': "name",
+        'URL': "url",
         'Author': "author",
         'Contact Name': ['field_contact_name', 'und', 0, 'value'],
         'Contact Email': "author_email",
@@ -286,12 +292,6 @@ def get_column_config_dataset():
         'Geographical Coverage Area': ['field_spatial', 'und', 0, 'wkt'],
         'License': "license_title",
         'Custom License': ['field_license', 'und', 0, 'value'],
-        'Homepage URL': ['field_landing_page', 'und', 0, 'url'],
-        'Description': "notes",
-        'Textformat': ["body", "und", 0, "format"],
-        'URL': "url",
-        'Tags': 'CATEGORIES',
-        'Groups': 'COLLECT|groups.title',
         'Frequency': ['field_frequency', 'und', 0, 'value'], #example value: "R/P1Y" ?
         'Temporal Coverage Start': ['field_temporal_coverage', 'und', 0, 'value'],
         'Temporal Coverage End': ['field_temporal_coverage', 'und', 0, 'value2'],
@@ -304,7 +304,6 @@ def get_column_config_dataset():
         'Related Content': 'RELATED',
         # [x] Additional Info => wird anders eingebunden
         # [x] Resources => wird anders eingebunden
-        'Schlagworte': 'TAGS',  # field_dataset_tags
         # [x] Playground => Ein paar Felder, die anscheinend nur für Köln relevant sind
         # [x] Harvest Source => verwenden wir nicht, habe ich in der Doku erklärt
 
@@ -319,7 +318,8 @@ def get_column_config_dataset():
             # Oben in Listen
         'State': "state",
         'Created': "metadata_created",
-        'Modified': "metadata_modified"
+        'Modified': "metadata_modified",
+        'Schlagworte': 'TAGS'  # field_dataset_tags
     }
     return columns_config
 
