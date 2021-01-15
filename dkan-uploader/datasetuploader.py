@@ -86,7 +86,7 @@ class DatasetUploader:
         node_id = dataset.getValue(Dataset.NODE_ID)
 
         if config.dataset_ids and (config.dataset_ids.find(package_id) == -1):
-            logging.info(_("Wird übersprungen wegen Datensatz-Beschränkung: '%s' nicht in '%s'"), package_id, config.dataset_ids)
+            logging.warning(_("Wird übersprungen wegen Datensatz-Beschränkung: '%s' nicht in '%s'"), package_id, config.dataset_ids)
             return '-'
 
         elif config.dataset_ids:

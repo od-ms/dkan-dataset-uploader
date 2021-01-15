@@ -31,5 +31,6 @@ x_api_get_node_details = "/api/dataset/node/{}.json"
 
 x_download_extended_dataset_infos = True
 x_temp_dir = 'temp/'
+x_log_dir = 'logs/'
 x_uploaded_resource_path = '/sites/default/files/'
 x_uploaded_datastore_path = '/api/action/datastore/'

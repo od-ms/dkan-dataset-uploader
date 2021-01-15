@@ -34,7 +34,7 @@ class LoggingTextHandler(logging.Handler):
     def emit(self, record):
         msg = self.format(record)
 
-        self.widget.configure(state='normal')
+        #self.widget.configure(state='normal')
         self.widget.insert(END, msg + '\n', record.levelname)
         #self.widget.configure(state='disabled')
         # Autoscroll to the bottom
@@ -209,11 +209,11 @@ class MainGui(Frame):
         self.info_box.grid(row=0, column=0, sticky=(N, S, E, W))
 
         # Create textLogger
-        text_handler = LoggingTextHandler(self.info_box)
+        self.log_textwindow_handler = LoggingTextHandler(self.info_box)
 
         # Add the handler to logger
         logger = logging.getLogger()
-        logger.addHandler(text_handler)
+        logger.addHandler(self.log_textwindow_handler)
 
 
     def update_config(self):
@@ -226,8 +226,9 @@ class MainGui(Frame):
         config.detailed_resources = self.detailed_resources.get()
         config.dataset_ids = self.query_input.get()
         config.message_level = self.message_level.get()
+
         logging.info("Log level: %s", config.message_level)
-        logging.getLogger().setLevel(logging.INFO if config.message_level == 'Normal' else logging.DEBUG)
+        self.log_textwindow_handler.setLevel(logging.INFO if config.message_level == 'Normal' else logging.DEBUG)
         has_changed = confighandler.write_config_file()
         if has_changed:
             logging.debug(_("Konfiguration wurde geändert."))

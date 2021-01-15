@@ -4,6 +4,8 @@
 import argparse
 import textwrap
 import logging
+import os.path
+from datetime import datetime
 from . import config
 from . import main_gui
 from . import excelwriter
@@ -13,6 +15,19 @@ from . import dkan_api_test
 
 logging.basicConfig(level=logging.DEBUG, format='<%(asctime)s %(levelname)s> %(message)s')
 logging.getLogger("requests").setLevel(logging.WARNING)
+
+
+# Setup additional logger that reports everything into one file per program run -- at "debug"-level, no matter what loglevel was set in the gui
+log_now = datetime.now() # current date and time
+log_filename = log_now.strftime("%Y-%m-%d_%H%M%S.log")
+log_file = os.path.normpath(config.x_log_dir + log_filename)
+log_handler = logging.FileHandler(log_file, mode='a')
+log_formatter = logging.Formatter('%(asctime)s %(levelname)s\t%(message)s'), datefmt='%I:%M:%S')
+log_handler.setFormatter(log_formatter)
+log_handler.setLevel(logging.DEBUG)
+logger = logging.getLogger()
+logger.addHandler(log_handler)
+
 
 class DkanUploader:
     """Main file DKAN REMOTE CONTROL"""
