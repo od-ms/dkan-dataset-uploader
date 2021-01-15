@@ -53,11 +53,35 @@ class ExcelReader:
             else:
                 logging.warning(_(" X %s => Kein passendes DKAN-Feld gefunden"), column_name)
 
-        for field in dkan_fields:
+        missing_dataset_cols = 0
+        for field in dkan_dataset_fields:
             if not field in used_fields:
+                missing_dataset_cols+=1
                 logging.warning(_(" > %s => Fehlt in Excel-Datei"), field)
+        if missing_dataset_cols:
+            logging.error(_('In der Excel-Datei fehlen Dataset-Spalten. Bitte fügen Sie erst die fehlenden Spalten hinzu.'))
+            return None
+
+        self.datasetuploader.setIngoreResources(False)
+        missing_resource_cols = 0
+        for field in dkan_resource_fields:
+            if not field in used_fields:
+                missing_resource_cols+=1
+                logging.warning(_(" > %s => Ressource-Spalte fehlt in Excel-Datei"), field)
+        if missing_resource_cols:
+            if missing_resource_cols == len(dkan_resource_fields):
+                # TODO we should pop up a window that asks the user if its ok to continue
+                logging.error(_('Die Excel-Datei enthält keine Ressource-Informationen!'))
+                logging.error(_('Daher werden nur Datensatz-Daten aktualisiert. Die Ressourcen werden nicht verändert.'))
+                self.datasetuploader.setIngoreResources(True)
+
+            else:
+                logging.error('In der Excel-Datei fehlen Ressource-Spalten. Bitte fügen Sie erst die fehlenden Spalten hinzu.')
+                return None
+
 
         constants.Dataset.verify()
+        constants.Resource.verify()
 
         self.columns_in_file = columns
         self.parse_rows(sheet)

@@ -11,11 +11,11 @@ from .constants import Dataset
 class DatasetUploader:
     """ Handle creation of Excel content """
 
-    # runtime config
-    current_row = 0
+    _ignore_resources = False
 
-    def __init__(self):
-        self.current_row = 0
+
+    def setIngoreResources(self, val):
+        self._ignore_resources=val
 
 
     def getValue(self, dataset, value_name):
@@ -67,17 +67,19 @@ class DatasetUploader:
         elif node_id == '-':
             return None
 
-        # add or update resources
         raw_dataset = dkanhandler.getDatasetDetails(node_id)
 
-        # TODO remove this if diff is always empty
+        # Summary with changes
         raw_dataset2 = dkanhelpers.HttpHelper.read_dkan_node(node_id)
         logging.debug(_(" == Datensatz-Änderung: == "))
         logging.debug(diff(raw_dataset, raw_dataset2))
 
-        self.processResources(raw_dataset, resources)
+        # add or update resources
+        if not self._ignore_resources:
+            self.processResources(raw_dataset, resources)
 
         return node_id
+
 
     def updateDataset(self, dataset):
         package_id = dataset.getValue(Dataset.DATASET_ID)
@@ -93,8 +95,6 @@ class DatasetUploader:
 
         else:
             return dkanhandler.update(dataset)
-
-
 
 
     def deleteDataset(self, node_id):

@@ -3,6 +3,16 @@ import logging
 import hashlib
 from . import config
 
+
+class ResourceType:
+    """ Werte für die Felder Resource-Typ & Resource-Typ-Detail """
+    TYPE_URL = 'url'
+    TYPE_UPLOAD = 'uploaded'
+    TYPE_DATASTORE = 'datastore'
+    TYPE_REMOTE_FILE = 'remote_file' # Dieser Wert ist nur im Feld "Resource.TYP2" bei "detaillierten Ressourcen" mit drin
+                                     # (was zig mal mehr DKAN-requests erfordert)
+
+
 class Resource:
     """ Resource """
 
@@ -18,18 +28,13 @@ class Resource:
     COMMENTS = 'Kommentare-Status'  # 1 = Geschlossen, 2 = Öffnen
     PUBLISHED = 'Veröffentlicht?'   # 1 = Veröffentlicht,  0 = Nicht veröffentlicht
     FRONTPAGE = 'Startseite'        # 1 = "Auf der Startseite", 0 = sonst
-    IS_DETAILED = 'Rs-Detail'
-
-    # Resource Typen
-    TYPE_URL = 'url'
-    TYPE_REMOTE_FILE = 'remote_file'    # Diesen Typ können wir beim Datenabruf (noch) nicht erkennen, weil CKAN JSON
-    TYPE_UPLOAD = 'uploaded'
-    TYPE_DATASTORE = 'datastore'
+    TYP2 = 'Resource-Typ-Detail'    # gleiches wie "TYP", nur hier wird zusätzlich ausgegeben, ob es sich um "remote_file" handelt,
+                                    # (was zig mal mehr DKAN-requests erfordert)
 
     # we dont write these to DKAN, they are only in the Excel file:
     HTTP_CODE = 'HTTP-Responsecode'
     HTTP_OK = 'Prüfung OK?'
-    LFD_NR = 'Lfd-nr'
+    LFD_NR = 'Lfd-Nr'
 
     _row = {}
 
@@ -68,9 +73,6 @@ class Resource:
         return Resource(row)
 
 
-
-
-
     def set(self, field, value):
         self._row[field] = value
 
@@ -88,13 +90,14 @@ class Resource:
     def verify():
         ''' Internal test: check if our class definition is correct '''
         members = [getattr(Resource, attr) for attr in dir(Resource) if not callable(getattr(Resource, attr)) and not attr.startswith("_")]
-        known_columns = get_column_config_resource()
+
+        known_columns = {**get_column_config_resource(), **get_column_config_resource_detailed()}
         for member in members:
             if not member in known_columns:
-                raise RuntimeError(_('Programmfehler: Dataset-Objekt nutzt eine Spalte "{}" die es garnicht gibt.').format(member))
+                raise AbortProgramError(_('Programmfehler: Resource-Objekt nutzt eine Spalte "{}" die es garnicht gibt.').format(member))
         for column in known_columns:
             if not column in members:
-                raise RuntimeError(_("DKAN-Spalte {} fehlt in Dataset class definition.").format(column))
+                raise AbortProgramError(_("DKAN-Spalte {} fehlt in Dataset class definition.").format(column))
 
 
 class Dataset:
@@ -178,10 +181,10 @@ class Dataset:
         known_columns = get_column_config_dataset()
         for member in members:
             if not member in known_columns:
-                raise RuntimeError(_('Programmierfehler: Dataset-Objekt nutzt eine Spalte "{}" die es garnicht gibt.').format(member))
+                raise AbortProgramError(_('Programmierfehler: Dataset-Objekt nutzt eine Spalte "{}" die es garnicht gibt.').format(member))
         for column in known_columns:
             if not column in members:
-                raise RuntimeError(_("DKAN-Spalte {} fehlt in Dataset class definition.").format(column))
+                raise AbortProgramError(_("DKAN-Spalte {} fehlt in Dataset class definition.").format(column))
 
 
     def getRawValue(self, valueName, default=""):
@@ -226,6 +229,14 @@ class Dataset:
 
     def __str__(self):
         return '{} ({})'.format(self._row[Dataset.TITLE], self._row[Dataset.DATASET_ID])
+
+
+class AbortProgramError(RuntimeError):
+    """ We create an own Error to catch on top level // better control of program flow """
+
+    def __init__(self, message):
+        super(AbortProgramError, self).__init__(message)
+        self.message = message
 
 
 
@@ -317,7 +328,7 @@ def get_column_config_resource_detailed():
         'Kommentare-Status': ['comment'],   # 1 = Geschlossen, 2 = Öffnen
         'Veröffentlicht?': ['status'],      # 1 = Veröffentlicht,  0 = Nicht veröffentlicht
         'Startseite': ['promote'],          # 1 = "Auf der Startseite", 0 = sonst
-        'Resource-Typ': 'RTYPE_DETAILED',
+        'Resource-Typ-Detail': 'RTYPE_DETAILED',
     }
     return detailed_columns
 

@@ -13,14 +13,7 @@ from . import config
 from . import constants
 from . import dkanhelpers
 from . import dkanhandler
-
-class AbortProgramError(RuntimeError):
-    """ We create an own Error to catch on top level // better control of program flow """
-
-    def __init__(self, message):
-        super(AbortProgramError, self).__init__(message)
-        self.message = message
-
+from .constants import AbortProgramError
 
 class ExcelResultFile:
     """ Handle creation of Excel content """
@@ -36,7 +29,7 @@ class ExcelResultFile:
     current_row = 0
     current_dataset_nr = 0
     existing_dataset_ids = {}
-    dataset_tag_names =  {}
+    dataset_tag_names=  {}
     column_mapping = []
 
     def __init__(self, filename, extra_columns):
@@ -274,15 +267,15 @@ class ExcelResultFile:
                         rc_value = str(self.current_dataset_nr) + '-' + str(resource_number+1)
 
                     elif rc_key == 'RTYPE':
-                        rc_value = constants.Resource.TYPE_URL
+                        rc_value = constants.ResourceType.TYPE_URL
                         url_keyname = constants.get_column_config_resource()[constants.Resource.URL]
                         if isinstance(url_keyname, list):
                             raise AbortProgramError(_('Unerwarteter Knotentyp "Liste".'))
                         if url_keyname in resource:
                             if resource[url_keyname].find(config.x_uploaded_resource_path) != -1:
-                                rc_value = constants.Resource.TYPE_UPLOAD
+                                rc_value = constants.ResourceType.TYPE_UPLOAD
                             elif resource[url_keyname].find(config.x_uploaded_datastore_path) != -1:
-                                rc_value = constants.Resource.TYPE_DATASTORE
+                                rc_value = constants.ResourceType.TYPE_DATASTORE
 
                     else:
                         try:
@@ -301,13 +294,13 @@ class ExcelResultFile:
                             rc_value = self.get_nested_json_value(resource_node, rc_key)
                         elif rc_key == 'RTYPE_DETAILED':
                             if self.get_nested_json_value(resource_node, ["field_link_api", 'und', 0, 'url']):
-                                rc_value = constants.Resource.TYPE_URL
+                                rc_value = constants.ResourceType.TYPE_URL
                             elif self.get_nested_json_value(resource_node, ["field_link_remote_file", 'und', 0, 'uri']):
-                                rc_value = constants.Resource.TYPE_REMOTE_FILE
+                                rc_value = constants.ResourceType.TYPE_REMOTE_FILE
                             elif self.get_nested_json_value(resource_node, ["field_upload", 'und', 0, 'filename']):
-                                rc_value = constants.Resource.TYPE_UPLOAD
+                                rc_value = constants.ResourceType.TYPE_UPLOAD
                             elif self.get_nested_json_value(resource_node, ["field_datastore_status", 'und', 0, 'filename']):
-                                rc_value = constants.Resource.TYPE_DATASTORE
+                                rc_value = constants.ResourceType.TYPE_DATASTORE
                         else:
                             try:
                                 rc_value = resource_node[rc_key]
@@ -518,12 +511,9 @@ class Dkan2Excel:
 
 
 def write(command_line_excel_filename):
-    try:
-        main = Dkan2Excel()
-        main.run(command_line_excel_filename)
+    main = Dkan2Excel()
+    main.run(command_line_excel_filename)
 
-    except AbortProgramError as err:
-        logging.error(err.message)
 
 
 def validate_single_dataset_row(source_row, source_node_id):
