@@ -1,5 +1,6 @@
 import os
-import re
+import sys
+import subprocess
 import logging
 from tkinter import scrolledtext, Tk, Frame, Label, Checkbutton, Button, Entry, StringVar, Text, IntVar, PhotoImage ,\
     HORIZONTAL, DISABLED, SUNKEN, RIDGE, INSERT, NORMAL, END, N, S, W, E, OptionMenu
@@ -13,6 +14,26 @@ from . import confighandler
 from . import dkanhandler
 from . import dkan_api_test
 from .constants import AbortProgramError
+
+def launchExternal(program):
+    """launch(program)
+    Run program as if it had been double-clicked in Finder, Explorer,
+    Nautilus, etc. On OS X, the program should be a .app bundle, not a
+    UNIX executable. When used with a URL, a non-executable file, etc.,
+    the behavior is implementation-defined.
+
+    Returns something false (0 or None) on success; returns something
+    True (e.g., an error code from open or xdg-open) or throws on failure.
+    However, note that in some cases the command may succeed without
+    actually launching the targeted program."""
+
+    if sys.platform == 'darwin':
+        ret = subprocess.call(['open', program])
+    elif sys.platform.startswith('win'):
+        ret = os.startfile(os.path.normpath(program))
+    else:
+        ret = subprocess.call(['xdg-open', program])
+    return ret
 
 class LoggingTextHandler(logging.Handler):
     """This class allows you to log to a Tkinter Text or ScrolledText widget"""
@@ -46,8 +67,8 @@ class MainGui(Frame):
     """Display the Main GUI Window"""
 
     def __init__(self, window):
-        # enable automatic widget resizing on window resized by user
-        # TODO: The right side should get smaller, but the opposite is happening
+
+        # Create two top level frames
         Frame.__init__( self, window )
         top = window.winfo_toplevel()
         top.rowconfigure( 0, weight=1 )
@@ -58,13 +79,14 @@ class MainGui(Frame):
         p1 = PhotoImage(file = 'app-icon.gif')
         window.iconphoto(False, p1)
 
-        # Create two top level frames
+        # Create left frame with 3 form columns
         master = ttk.Frame(window, padding=(20, 30, 12, 12), borderwidth=10)
         master.grid(column=0, row=0, sticky=(N, S, E, W))
-        master.columnconfigure( 0, weight=1 )
+        master.columnconfigure( 0, weight=4 )
         master.columnconfigure( 1, weight=10 )
         master.columnconfigure( 2, weight=10 )
 
+        # Create right frame with logging-info-textbox
         self.master = master
         self.init_logging_textarea(window)
 
@@ -93,9 +115,14 @@ class MainGui(Frame):
         self.filename_input = Entry(master, validate="key", validatecommand=(vcmd, '%P'))
         self.filename_input.delete(0, END)
         self.filename_input.insert(0, config.excel_filename)
-        self.filename_input.grid(row=currentRow, column=1, columnspan=2, sticky=W+E, pady=(y_spacing, y_spacing))
+        self.filename_input.grid(row=currentRow, column=1, columnspan=2, sticky=W+E)
         self.filename_label = Label(master, text=_("Excel-Dateiname:"))
-        self.filename_label.grid(row=currentRow, column=0, sticky=E, pady=(y_spacing, y_spacing))
+        self.filename_label.grid(row=currentRow, column=0, sticky=E)
+        currentRow += 1
+        bb = Button(master, text="Datei prüfen", command=self.action_check_excel)
+        bb.grid(row=currentRow, column=1, sticky=W+E, pady=(0, y_spacing))
+        bb2 = Button(master, text="Excel-Datei öffnen", command=self.action_open)
+        bb2.grid(row=currentRow, column=2, sticky=W+E, pady=(0, y_spacing))
 
         currentRow += 1
         self.url_input = Entry(master, validate="key", validatecommand=(vcmd, '%P'))
@@ -227,7 +254,7 @@ class MainGui(Frame):
         config.dataset_ids = self.query_input.get()
         config.message_level = self.message_level.get()
 
-        logging.info("Log level: %s", config.message_level)
+        logging.debug("Log level: %s", config.message_level)
         self.log_textwindow_handler.setLevel(logging.INFO if config.message_level == 'Normal' else logging.DEBUG)
         has_changed = confighandler.write_config_file()
         if has_changed:
@@ -256,6 +283,16 @@ class MainGui(Frame):
     def validate_query(self, dataset_query):
         return True
 
+
+    def action_open(self):
+        ''' Open external file "with a double click" '''
+        filename = self.filename_input.get()
+        if not os.path.isfile(filename):
+            logging.error(_("Die Datei '%s' existiert nicht."))
+        else:
+            launchExternal(filename)
+
+
     def action_download(self):
         self.update_config()
         self.message_headline(_('Aktion: DKAN auslesen'))
@@ -266,8 +303,15 @@ class MainGui(Frame):
             logging.error(err.message)
 
         self.message_with_time('Aktion fertig: DKAN auslesen')
-
         # self.download_button.configure(state=NORMAL)
+
+
+    def action_check_excel(self):
+        self.message_headline(_('Aktion: Excel-Datei prüfen'))
+        self.update_config()
+        excelwriter.test_excel_file(False)
+        self.message_with_time('Aktion fertig: Excel-Datei prüfen')
+
 
     def action_status(self):
         self.message_headline(_('Aktion: Systemtest & Status'))
