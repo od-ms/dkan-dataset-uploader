@@ -110,17 +110,8 @@ def getDkanData(dataset: Dataset):
 
 
     if dataset.getRawValue(Dataset.KEYWORDS):
-        all_tags_in_dkan = dkanhelpers.HttpHelper.get_all_dkan_tags(api)
         tags_in_dataset = dataset.getValue(Dataset.KEYWORDS)
-        correct_tags = []
-        for tag in tags_in_dataset:
-            if tag in all_tags_in_dkan:
-                logging.debug("Gefundener Tag %s: '%s'", tag, all_tags_in_dkan[tag])
-                correct_tags.append(tag)
-            else:
-                logging.error("Unbekannte Tag-ID %s wird verworfen!", tag)
-
-        dkanData["field_dataset_tags"] ={"und": expand_into("tid", correct_tags)}
+        dkanData["field_dataset_tags"] ={"und": expand_into("tid", tags_in_dataset)}
 
         # "field_granularity": {"und": [{"value": "longitude/latitude"}]},
 
@@ -174,6 +165,13 @@ def getDkanData(dataset: Dataset):
 def disconnect():
     global api
     api = None
+
+
+def getApi():
+    if not api:
+        connect()
+    return api
+
 
 def connect():
     global api

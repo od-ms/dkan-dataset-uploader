@@ -112,8 +112,6 @@ class ExcelResultFile:
             elif extra_start:
                 extra_end = column_nr
             column_nr += 1
-        logging.debug("rooo %s", first_row)
-        logging.debug("EXTRA %s-%s", extra_start, extra_end)
 
         # init workbook objects
         self.workbook = xlsxwriter.Workbook(self.filename)
@@ -197,7 +195,7 @@ class ExcelResultFile:
     def get_dataset_tag_name(self, t_id):
         ''' Helper function that returns a dataset_tag name for a ID, with data fetching & caching '''
         if not self.dataset_tag_names:
-            self.dataset_tag_names = dkanhelpers.HttpHelper.get_all_dkan_tags(None)
+            self.dataset_tag_names = dkanhelpers.HttpHelper.get_all_dkan_tags()
 
         if t_id in self.dataset_tag_names:
             return self.dataset_tag_names[t_id]
@@ -606,14 +604,15 @@ def validate_single_dataset_row(source_row, source_node_id):
 
     return error_fields
 
+def test_excel_file(command_line_excel_filename):
+    # print excel file infos
+    print_excel_status(command_line_excel_filename)
 
 
 def test_and_status(command_line_excel_filename):
     '''
         A bunch of tests are performed to check if
-        - the dkan instance
-        - and the currently used file
-        are compatible to this version of dkan uploader
+        the dkan instance is compatible to this version of dkan uploader
     '''
     # print all config variables
     logging.info("")

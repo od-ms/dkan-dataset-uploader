@@ -3,10 +3,9 @@ import json
 import logging
 import os.path
 from timeit import default_timer as timer
-from dkan.client import DatasetAPI, LoginError
 import requests
 from . import config
-from . import constants
+from . import dkanhandler
 
 
 class HttpHelper:
@@ -14,6 +13,7 @@ class HttpHelper:
 
     file_formats = None
     dkan_tags = None
+    dkan_categories = None
 
     @staticmethod
     def read_dkan_node(node_id):
@@ -56,7 +56,16 @@ class HttpHelper:
 
 
     @staticmethod
-    def get_all_dkan_tags(pydkan_instance):
+    def get_all_dkan_categories():
+        pydkan_instance = dkanhandler.getApi()
+        if not HttpHelper.dkan_categories:
+            HttpHelper.dkan_categories = HttpHelper.parse_admin_page_contents(pydkan_instance, '/admin/structure/taxonomy/tags')
+        return HttpHelper.dkan_categories
+
+
+    @staticmethod
+    def get_all_dkan_tags():
+        pydkan_instance = dkanhandler.getApi()
         if not HttpHelper.dkan_tags:
             HttpHelper.dkan_tags = HttpHelper.parse_admin_page_contents(pydkan_instance, '/admin/structure/taxonomy/dataset_tags')
         return HttpHelper.dkan_tags
@@ -79,7 +88,7 @@ class HttpHelper:
         # Which seems to be the only way to get a list of the dataset_tags with their according IDs
 
         if not pydkan_instance:
-            pydkan_instance = DatasetAPI(config.dkan_url, config.dkan_username, config.dkan_password, True)
+            pydkan_instance = dkanhandler.getApi()
 
         tags_url = config.dkan_url + admin_page_path
         res = pydkan_instance.get(tags_url)

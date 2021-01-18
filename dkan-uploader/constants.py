@@ -1,6 +1,7 @@
 import re
 import logging
 import hashlib
+from . import dkanhelpers
 from . import config
 
 
@@ -118,7 +119,7 @@ class Dataset:
     DESCRIPTION = 'Description'
     TEXT_FORMAT = 'Textformat'
     URL = 'URL'
-    TAGS = 'Tags'
+    TAGS = 'Tags' # field_tags
     GROUPS = 'Groups'
     FREQUENCY = 'Frequency'
     TEMPORAL_START = 'Temporal Coverage Start'
@@ -130,7 +131,7 @@ class Dataset:
     DATA_STANDARD = 'Data Standard'
     LANG = 'Language'
     RELATED_CONTENT = 'Related Content'
-    KEYWORDS = 'Schlagworte'
+    KEYWORDS = 'Schlagworte' # field_dataset_tags
     STATE = 'State'
     DATE_CREATED = 'Created'
     DATE_MODIFIED = 'Modified'
@@ -168,6 +169,14 @@ class Dataset:
             if not field in row:
                 logging.warning(_(' Datensatz gefunden, aber Spalte wird ignoriert weil Datensatz-Pflichtfeld fehlt: %s'), field)
                 return None
+
+        # Validate text format field
+        if Dataset.TEXT_FORMAT in row:
+            value = row[Dataset.TEXT_FORMAT]
+            possible = ["html", "bbcode", "plain_text", "full_html"]
+            if not value in possible:
+                logging.error(_("Spalte '%s' hat unbekannten Wert '%s'. Datensatzbeschreibung wird nicht korrekt angezeigt werden."))
+                logging.error(_("Erlaubte Werte: %s "), Dataset.TEXT_FORMAT, value, possible)
 
         new_object = Dataset(row)
         logging.info(_(" Datensatz-Felder: %s/%s ('%s')"), count_non_empty_dataset_fields, len(get_column_config_dataset()), new_object.getValue(Dataset.TITLE))
@@ -207,8 +216,44 @@ class Dataset:
 
         if (valueName == Dataset.TAGS) or (valueName == Dataset.KEYWORDS):
             tags = self.getRawValue(valueName)
-            value = re.findall(r'"[^"]*"\s+\((\d+)\)', tags)
-            logging.debug(_("ID '%s' gefunden: %s"), valueName, value)
+            tags_in_dataset = re.findall(r'[“"]([^“"”]+)[”"]', tags)
+            ids_in_dataset = re.findall(r'\((\d+)\)', tags)
+            if tags_in_dataset:
+                logging.debug(_("'%s': %s"), valueName, tags_in_dataset)
+            if ids_in_dataset:
+                logging.debug(_("'%s' IDs: %s"), valueName, ids_in_dataset)
+
+            has_error = False
+            if tags and not (tags_in_dataset or ids_in_dataset):
+                has_error = True
+                logging.error(_('Problem bei "%s". Wert wurde nicht erkannt: %s'), valueName, tags)
+
+            if valueName == Dataset.KEYWORDS:
+                all_tags_in_dkan = dkanhelpers.HttpHelper.get_all_dkan_tags()
+            else:
+                all_tags_in_dkan = dkanhelpers.HttpHelper.get_all_dkan_categories()
+
+            # TODOs we completely ignore ids_in_dataset .. do we need that at all?
+            has_error = False
+            value = []
+            for tag_name in tags_in_dataset:
+                found = ''
+                for tkey, tval in all_tags_in_dkan.items():
+                    if tval.lower() == tag_name.lower():
+                        found = tkey
+                        logging.debug("%s gefunden: %s '%s'", valueName, tkey, tag_name)
+                if not found:
+                    logging.error("'%s' unbekannt: '%s' wird verworfen", valueName, tag_name)
+                    has_error = True
+                else:
+                    value.append(found)
+            if has_error:
+                logging.error(_('Problem bei "%s". Mögliche Lösung:'), valueName)
+                logging.error(_('a) Bitte schreiben Sie %s immer in Anführungszeichen, z.B.: "Statistik", "API"'), valueName)
+                logging.error(_('b) Sie können außerdem nur %s verwenden, die im DKAN Administrationsbereich angelegt wurden.'), valueName)
+                logging.error(_('Mögliche Werte für "%s" sind:'), valueName)
+                logging.error(_('%s'), all_tags_in_dkan.values())
+            logging.debug("Gefundene tags: %s", value)
 
         elif valueName == Dataset.GROUPS:
             tags = self.getRawValue(valueName)
@@ -279,7 +324,7 @@ def get_column_config_dataset():
         'Node-ID': ["nid"],
         'Titel': "title",
         'Groups': 'COLLECT|groups.title',
-        'Tags': 'CATEGORIES',
+        'Tags': 'CATEGORIES', # field_tags
         'Description': "notes",
         'Textformat': ["body", "und", 0, "format"],
         'Homepage URL': ['field_landing_page', 'und', 0, 'url'],
