@@ -2,6 +2,12 @@ import re
 import json
 import logging
 import os.path
+import os
+import cgi
+import ssl
+from urllib.parse import urlparse
+from urllib.request import urlopen
+from urllib.request import urlretrieve
 from timeit import default_timer as timer
 import requests
 from . import config
@@ -69,6 +75,60 @@ class HttpHelper:
         if not HttpHelper.dkan_tags:
             HttpHelper.dkan_tags = HttpHelper.parse_admin_page_contents(pydkan_instance, '/admin/structure/taxonomy/dataset_tags')
         return HttpHelper.dkan_tags
+
+
+    @staticmethod
+    def get_resource_filename(url):
+        file_url = urlparse(url)
+        file_path = file_url.path                    # Output: /dir/-47-571378756077.jpg
+        file_name = os.path.basename(file_path)
+        return file_name
+
+
+    @staticmethod
+    def download_resource(url, lfd_nr):
+
+        ctx = ssl.create_default_context()
+        ctx.check_hostname = False
+        ctx.verify_mode = ssl.CERT_NONE
+        try:
+            logging.debug("URL: %s", url)
+            remotefile = urlopen(url, context=ctx)
+        except Exception as err:
+            logging.warning('Fehler: %s', repr(err))
+            logging.error('Resource-URL kann nicht geöffnet werden: %s', url)
+            return None
+
+        filename = ''
+        try:
+            logging.debug("remotefile info %s", remotefile.info())
+            cd_header = remotefile.info()['Content-Disposition']
+            logging.debug("header %s", cd_header)
+            value, params = cgi.parse_header(cd_header)
+            filename = params["filename"]
+            logging.info("Dateiname aus Header: %s", filename)
+        except Exception as err:
+            logging.debug('Kein Dateiname im Header, Fehler: %s', repr(err))
+            filename = HttpHelper.get_resource_filename(url)
+            logging.info("Dateiname aus URL: %s", filename)
+
+        if not filename:
+            logging.error("Dateiname konnte nicht herausgefunden werden.")
+            return None
+
+        targetpath = os.path.normpath(os.path.join(config.download_dir, lfd_nr + '-' + filename))
+        logging.debug("Download Ziel: %s", targetpath)
+
+        ti = timer()
+        urlretrieve(url, targetpath)
+        logging.debug(_('{:.4f}s URL-Ladezeit: "{}"').format(timer() - ti, url))
+
+        return filename
+
+
+
+
+
 
 
     @staticmethod
