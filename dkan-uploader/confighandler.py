@@ -30,6 +30,7 @@ def read_config_file():
             config.dkan_username = config_ini['dkan']['username']
             config.dkan_password = config_ini['dkan']['password']
             config.excel_filename = config_ini['excel']['filename']
+            config.download_dir = config_ini['excel']['download_dir']
             config.skip_resources = config_ini.getboolean('features', 'skip_resources')
             config.check_resources = config_ini.getboolean('features', 'check_resources')
             config.detailed_resources = config_ini.getboolean('features', 'detailed_resources')
@@ -68,6 +69,7 @@ def write_config_file():
     config_ini.set('dkan', 'username', config.dkan_username)
     config_ini.set('dkan', 'password', config.dkan_password)
     config_ini.set('excel', 'filename', config.excel_filename)
+    config_ini.set('excel', 'download_dir', config.download_dir)
     config_ini.set('features', 'skip_resources', 'Yes' if config.skip_resources else 'No')
     config_ini.set('features', 'check_resources', 'Yes' if config.check_resources else 'No')
     config_ini.set('features', 'detailed_resources', 'Yes' if config.detailed_resources else 'No')

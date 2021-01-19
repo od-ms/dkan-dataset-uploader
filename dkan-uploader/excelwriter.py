@@ -1,5 +1,6 @@
 #! /usr/bin/python
 
+import os
 import sys
 import json
 import logging
@@ -703,6 +704,7 @@ def print_excel_status(command_line_excel_filename):
     dkan_fields = {**dkan_dataset_fields, **dkan_resource_fields}
 
     logging.info(_(" Dateiname: %s"), excel_filename)
+    logging.info(_(" Absoluter Pfad: %s"), os.path.abspath(excel_filename))
     loc = (excel_filename)
 
     try:

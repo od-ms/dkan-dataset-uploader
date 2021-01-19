@@ -5,6 +5,7 @@ dkan_url = ""
 dkan_username = ""
 dkan_password = ""
 excel_filename = ""
+download_dir = ""
 
 # features
 skip_resources = False

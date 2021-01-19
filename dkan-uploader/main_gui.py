@@ -35,6 +35,23 @@ def launchExternal(program):
         ret = subprocess.call(['xdg-open', program])
     return ret
 
+
+def isWritable(directory):
+    try:
+        tmp_prefix = "delete_me"
+        count = 0
+        filename = os.path.join(directory, tmp_prefix)
+        while(os.path.exists(filename)):
+            filename = "{}.{}".format(os.path.join(directory, tmp_prefix),count)
+            count = count + 1
+        f = open(filename,"w")
+        f.close()
+        os.remove(filename)
+        return True
+    except Exception as e:
+        logging.error("Fehler beim Verzeichniszugriff: %s", repr(e))
+        return False
+
 class LoggingTextHandler(logging.Handler):
     """This class allows you to log to a Tkinter Text or ScrolledText widget"""
 
@@ -109,9 +126,16 @@ class MainGui(Frame):
         labelWuerfel.image=p2 # keep reference to image so garbe collection doesnt remove it..
         labelWuerfel.grid(row=0, column=0, sticky=W)
 
-        # Filename input
+        # Filename inputs
         currentRow += 1
         vcmd = master.register(self.validate)   # we have to wrap the command
+        self.download_dir = Entry(master, validate="key", validatecommand=(vcmd, '%P'))
+        self.download_dir.delete(0, END)
+        self.download_dir.insert(0, config.download_dir)
+        self.download_dir.grid(row=currentRow, column=1, columnspan=2, sticky=W+E)
+        self.download_label = Label(master, text=_("Ressourcen-Verzeichnis:"))
+        self.download_label.grid(row=currentRow, column=0, sticky=E)
+        currentRow += 1
         self.filename_input = Entry(master, validate="key", validatecommand=(vcmd, '%P'))
         self.filename_input.delete(0, END)
         self.filename_input.insert(0, config.excel_filename)
@@ -119,11 +143,14 @@ class MainGui(Frame):
         self.filename_label = Label(master, text=_("Excel-Dateiname:"))
         self.filename_label.grid(row=currentRow, column=0, sticky=E)
         currentRow += 1
-        bb = Button(master, text="Datei prüfen", command=self.action_check_excel)
+
+        # Excel file action buttons
+        bb = Button(master, text=_("Dateipfade prüfen"), command=self.action_check_excel)
         bb.grid(row=currentRow, column=1, sticky=W+E, pady=(0, y_spacing))
-        bb2 = Button(master, text="Excel-Datei öffnen", command=self.action_open)
+        bb2 = Button(master, text=_("Excel-Datei öffnen"), command=self.action_open)
         bb2.grid(row=currentRow, column=2, sticky=W+E, pady=(0, y_spacing))
 
+        # DKAN Url
         currentRow += 1
         self.url_input = Entry(master, validate="key", validatecommand=(vcmd, '%P'))
         self.url_input.delete(0, END)
@@ -252,6 +279,7 @@ class MainGui(Frame):
         config.dkan_username = self.user_input.get()
         config.dkan_password = self.password_input.get()
         config.excel_filename = self.filename_input.get()
+        config.download_dir = self.download_dir.get()
         config.check_resources = self.check_resources.get()
         config.skip_resources = self.skip_resources.get()
         config.detailed_resources = self.detailed_resources.get()
@@ -285,6 +313,7 @@ class MainGui(Frame):
         # logging.debug("There could be a validation here")
         return True
 
+
     def validate_query(self, dataset_query):
         return True
 
@@ -312,10 +341,28 @@ class MainGui(Frame):
 
 
     def action_check_excel(self):
-        self.message_headline(_('Aktion: Excel-Datei prüfen'))
+        self.message_headline(_('Aktion: Dateipfade prüfen'))
         self.update_config()
         excelwriter.test_excel_file(False)
-        self.message_with_time('Aktion fertig: Excel-Datei prüfen')
+
+        logging.info("")
+        logging.info(_("#######  Informationen zum Up-/Download-Verzeichnis  #######"))
+
+        check_dir = os.path.normpath(config.download_dir)
+        logging.info("Prüfe Up-/Download-Verzeichnis: %s", check_dir)
+        logging.info("Absoluter Pfad: %s", os.path.abspath(config.download_dir))
+        if os.path.isdir(check_dir):
+            logging.info(_("Verzeichnis existiert."))
+        else:
+            logging.warning(_("Verzeichnis existiert nicht. Uploads können nicht durchgeführt werden."))
+            logging.error("Bitte legen Sie das Up-/Download Verzeichnis an und stellen Sie sicher, dass es beschreibbar ist.")
+
+        if isWritable(check_dir):
+            logging.info(_("Verzeichnis ist beschreibbar."))
+        else:
+            logging.warning(_("Verzeichnis ist nicht beschreibbar. Downloads können nicht durchgeführt werden."))
+
+        self.message_with_time('Aktion fertig: Dateipfade prüfen')
 
 
     def action_status(self):
