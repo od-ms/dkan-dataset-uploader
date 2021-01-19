@@ -103,15 +103,17 @@ class ExcelResultFile:
 
         # find "extra"-columns start & end to make them retractable in the excel
         extra_start = 0
-        extra_end = len(first_row)-1
+        extra_end = 0
         column_nr = 0
         for column_title in first_row:
             if column_title[:6] == 'Extra-':
                 if not extra_start:
                     extra_start = column_nr
-            elif extra_start:
+            elif extra_start and not extra_end:
                 extra_end = column_nr
             column_nr += 1
+        if not extra_end:
+            extra_end = len(first_row)-1
 
         # init workbook objects
         self.workbook = xlsxwriter.Workbook(self.filename)
@@ -123,8 +125,8 @@ class ExcelResultFile:
         self.worksheet.set_column(first_col=0, last_col=0, cell_format=self.small_font)
 
         # Add group ("level: 1") to some columns so that they are "einklappbar"
-        self.worksheet.set_column('D:F', 16, None, {'level': 1})            # Tags, Groups, Schlagworte
-        self.worksheet.set_column('G:G', 30, self.small_font, {'level': 1}) # Description
+        self.worksheet.set_column('D:E', 16, None, {'level': 1})            # Tags, Groups
+        self.worksheet.set_column('F:G', 30, self.small_font, {'level': 1}) # Description, Homepage
         self.worksheet.set_column('H:H', 10, None, {'level': 1})
         self.worksheet.set_column('J:AD', None, None, {'level': 1})
         if extra_start and extra_end:
@@ -623,9 +625,6 @@ def test_and_status(command_line_excel_filename):
                 logging.info(" - %s: ...", item)
             else:
                 logging.info(" - %s: %s", item, getattr(config,item))
-
-    # print excel file infos
-    print_excel_status(command_line_excel_filename)
 
     # iterate all datasets once to find all defined extras
     dkanApi = DkanApiAccess()
