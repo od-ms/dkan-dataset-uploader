@@ -1,6 +1,7 @@
 #! /usr/bin/python
 
 import os
+import re
 import sys
 import json
 import logging
@@ -281,12 +282,16 @@ class ExcelResultFile:
             for resource_number, resource in enumerate(package_data['resources']):
                 resource_package_id = resource['id']
                 resource_row = {}
+                lfd_nr = '{0:03d}'.format(self.current_dataset_nr) + '-' + '{0:02d}'.format(resource_number+1)
+
+                if (config.resources_download) and ("url" in resource):
+                    dkanhelpers.HttpHelper.download_resource(resource['url'], lfd_nr)
 
                 # get all resource fields according to resource column config
                 for column_name, rc_key in constants.get_column_config_resource().items():
                     rc_value = ""
                     if rc_key == 'lfd-nr':
-                        rc_value = str(self.current_dataset_nr) + '-' + str(resource_number+1)
+                        rc_value = lfd_nr
 
                     elif rc_key == 'RTYPE':
                         rc_value = constants.ResourceType.TYPE_URL
@@ -491,6 +496,14 @@ class Dkan2Excel:
         existing_dataset_ids = excel_file.get_existing_dataset_ids()
         nr_of_changes = 0
 
+        limit = 100000
+        dataset_query = config.dataset_ids
+        match = re.search(r'limit\s*=\s*(\d+)\s*',dataset_query,flags = re.S|re.M)
+        if match:
+            limit = int(match.group(1))
+            logging.info(_("Beschränkung per 'Limit'-Query auf %s Datensätze."), limit)
+            dataset_query = dataset_query.replace(match.group(0), '')
+
         # write all datasets and resources to excel file
         for package_data in data['result'][0]:
 
@@ -499,10 +512,10 @@ class Dkan2Excel:
                 raise ValueError('Dataset format is not valid. Scroll up, see detailed error above')
 
             dataset_id = package_data['id']
-            if config.dataset_ids and (config.dataset_ids.find(dataset_id) == -1):
-                logging.debug(_("%s nicht in %s"), dataset_id, config.dataset_ids)
+            if dataset_query and (dataset_query.find(dataset_id) == -1):
+                logging.debug(_("%s nicht in %s"), dataset_id, dataset_query)
                 continue
-            elif config.dataset_ids:
+            elif dataset_query:
                 logging.info(_("Datensatz gefunden: %s"), dataset_id)
 
             if (not config.overwrite_rows) and (dataset_id in existing_dataset_ids):
@@ -533,6 +546,9 @@ class Dkan2Excel:
 
             excel_file.add_dataset(package_data, node_data)
             nr_of_changes += 1
+            if nr_of_changes >= limit:
+                logging.info(_("Limit von %s erreicht"), limit)
+                break
 
 
         excel_file.finish()
