@@ -1,4 +1,5 @@
 import re
+import os.path
 import logging
 import hashlib
 from . import dkanhelpers
@@ -43,12 +44,21 @@ class Resource:
         self._row = row
 
 
-    def getUploadFilename(self):
+    def getUploadFilenameDELETE_ME(self):
         return hashlib.md5(str(self._row[Resource.URL]).encode('utf-8')).hexdigest() + '.csv'
 
     def getUniqueId(self):
         return self._row[Resource.URL]
 
+    def getUploadFilePath(self):
+        filename = self.getValue(Resource.URL)
+        if re.search(r'(\b(https?|ftp):\/\/[-A-Z0-9+&@#\/%?=~_|!:,.;]*[-A-Z0-9+&@#\/%=~_|])', filename):
+            return False
+        file_path = os.path.join(config.download_dir, filename)
+        if os.path.isfile(file_path) or os.path.islink(file_path):
+            return file_path
+        else:
+            return False
 
     @staticmethod
     def create(row):
@@ -79,7 +89,7 @@ class Resource:
 
 
     def getValue(self, valueName):
-        return self._row[valueName]
+        return self._row[valueName] if valueName in self._row else ''
 
 
     def __repr__(self):

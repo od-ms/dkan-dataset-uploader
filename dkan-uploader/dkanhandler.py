@@ -6,7 +6,7 @@ import json
 import logging
 import requests
 from dkan.client import DatasetAPI, LoginError
-from .constants import Dataset, Resource
+from .constants import Dataset, Resource, ResourceType, AbortProgramError
 from . import dkanhelpers
 from . import config
 
@@ -251,56 +251,34 @@ def getDatasetDetails(nid):
 
 
 def getResourceDkanData(resource, nid, title):
-    """Return Base data for RESOURCE URLS"""
-    isUpload = False
+    """Return dkan node json data structure for RESOURCES"""
 
-    if isinstance(resource, Resource):
-        # TODO 'Resource-ID': 'id',
-        # [x] 'Resource-Name': 'name',
-        # [x] 'Format': 'format',
-        # [x] 'Externe Url': 'url',
-        # [x] 'Description': 'description',
-        # [ ] TYP = 'Resource-Typ'
-        # 'Prüfung OK?': 'response_ok',
-        # 'HTTP-Responsecode':'response_code'
-        resource = {
-            "type": resource.getValue(Resource.FORMAT),
-            "url": resource.getValue(Resource.URL),
-            "title": resource.getValue(Resource.NAME),
-            "body": resource.getValue(Resource.DESCRIPTION),
-            "storage": '' # TODO: denkbar wäre z.B. a) remote / b) download to dkan / c) import into dkan datastore
-        }
+    if not isinstance(resource, Resource):
+        raise AbortProgramError("Fehlerhafter Aufruf von getResourceDkanData(..)")
 
-
-    rFormat = resource['type']
+    rFormat = resource.getValue(Resource.FORMAT)
     if rFormat[0:3] == "WFS":  # omit WFS Version in type
         rFormat = "WFS"
 
     if rFormat[0:3] == "WMS":  # omit WMS Details in type
         rFormat = "WMS"
 
-    if rFormat[-7:] == '-upload':
-        resource['type'] = rFormat = rFormat[0:-7]
-        isUpload = True
-
-    formatLookup = dkanhelpers.HttpHelper.get_all_dkan_fileformats(api)
-
     lowerFormat = rFormat.lower()
+    formatLookup = dkanhelpers.HttpHelper.get_all_dkan_fileformats(api)
     formatId = formatLookup[lowerFormat] if (lowerFormat in formatLookup) else 70
 
-    rTitle = title + " - " + resource['type']
-    if rFormat == "HTML":
-        rTitle = title + " - " + "Vorschau"
-    if ('title' in resource) and resource['title']:
-        rTitle = resource['title']
-
+    rTitle = resource.getValue(Resource.NAME)
+    if not rTitle:
+        rTitle = title + " - " + resource.getValue(Resource.FORMAT)
+        if rFormat == "HTML":
+            rTitle = title + " - " + "Vorschau"
 
     rData = {
         "type": "resource",
         "field_dataset_ref": {"und": [{"target_id": nid}]},
         "title": rTitle,
         "body": {"und": [{
-            "value": resource['body'] if ("body" in resource) and resource['body'] else "",
+            "value": resource.getValue(Resource.DESCRIPTION),
             "format": "plain_text"
         }]},
         "field_format": {"und": [{"tid": formatId}]},
@@ -311,27 +289,27 @@ def getResourceDkanData(resource, nid, title):
         }]},
         "field_link_api": {"und": [{"url": ""}]}
     }
-    if isUpload:
+
+    fileUploadPath = resource.getUploadFilePath()
+    if fileUploadPath:
         rData.update({
-            "upload_file": resource['url'],
+            "upload_file": fileUploadPath,
         })
-    elif rFormat == "REMOVEME---CSV":
-        # TODO: Something is wrong here, fix it
-        # New setting in our DKAN:
-        #   "hochladen" or "external url" => SHOW PREVIEW IFRAME
-        #   "api or website url" => dont show
-        #
-        # We want previews only for CSV, because of DSGVO
+
+    elif resource.getValue(Resource.TYP) == ResourceType.TYPE_DATASTORE:
+        raise AbortProgramError("Nicht implementiert: Resource Type Datastore!!")
+
+    elif resource.getValue(Resource.TYP) == ResourceType.TYPE_REMOTE_FILE:
         rData.update({
             "field_link_remote_file": {"und": [{
-                "filefield_dkan_remotefile": {"url": resource['url']},
+                "filefield_dkan_remotefile": {"url": resource.getValue(Resource.URL)},
                 "fid": 0,
                 "display": 1
             }]}
         })
     else:
         rData.update({
-            "field_link_api": {"und": [{"url": resource['url']}]},
+            "field_link_api": {"und": [{"url": resource.getValue(Resource.URL)}]},
         })
 
     return rData
@@ -398,26 +376,12 @@ def handleFileUpload(data, nodeId):
     connect()
 
     if "upload_file" in data:
-        # download remote content
-        downloadUrl = data["upload_file"]
-        filename = os.path.join(
-            os.path.dirname(os.path.abspath(__file__)), '.', 'temp-files',
-            generateUploadFilename(downloadUrl))
-        print(nodeId, "[file-upload]", downloadUrl)
-        print("    Temp file:", filename)
-        del data['upload_file']
-        fileContent = requests.get(downloadUrl)
-        if fileContent.status_code != 200:
-            raise Exception('Error during download')
+        filename = data["upload_file"]
+        logging.info("  Ressource-Upload Node %s: %s", nodeId, filename)
+        logging.debug("Node data: %s", data)
 
-        # save content to temp file
-        tempFile = open(filename, "w")
-        tempFile.write(fileContent.text)
-        tempFile.close()
-
-        # attach temp file to resource
         aResponse = api.attach_file_to_node(filename, nodeId, 'field_upload')
-        print(aResponse.status_code, aResponse.text)
+        logging.debug(_("  Ergebnis: %s - %s"), aResponse.status_code, aResponse.text)
 
 
 def updateResources(newResources:List[Resource], existingResources, dataset, forceUpdate):
