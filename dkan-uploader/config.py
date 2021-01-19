@@ -10,6 +10,7 @@ excel_filename = ""
 skip_resources = False
 check_resources = False
 detailed_resources = False
+resources_download = False
 
 # endpoint is used to fetch single packages by id
 api_package_details = "/api/3/action/package_show?id="

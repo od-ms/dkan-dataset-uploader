@@ -195,11 +195,15 @@ class MainGui(Frame):
 
         currentRow +=1
         self.check_resources = IntVar(value=(1 if config.check_resources else 0))
-        Checkbutton(master, text = "Ressourcen beim Download überprüfen",variable = self.check_resources).grid(row=currentRow, column=1, columnspan=2,  sticky=W)
+        Checkbutton(master, text = "Ressourcen-URLS überprüfen",variable = self.check_resources).grid(row=currentRow, column=1, columnspan=2,  sticky=W)
 
         currentRow +=1
         self.detailed_resources = IntVar(value=(1 if config.detailed_resources else 0))
-        Checkbutton(master, text = _("Detaillierte Ressourcen"),variable = self.detailed_resources).grid(row=currentRow, column=1, columnspan=2,  sticky=W)
+        Checkbutton(master, text = _("Detaillierte Ressourcendaten (langsamer)"),variable = self.detailed_resources).grid(row=currentRow, column=1, columnspan=2,  sticky=W)
+
+        currentRow +=1
+        self.resources_download = IntVar(value=(1 if config.resources_download else 0))
+        Checkbutton(master, text = _("Ressourcen-Dateien herunterladen"),variable = self.resources_download).grid(row=currentRow, column=1, columnspan=2,  sticky=W)
 
         currentRow += 1
         self.download_button = Button(master, text="DKAN -> Excel", command=self.action_download)
@@ -251,6 +255,7 @@ class MainGui(Frame):
         config.check_resources = self.check_resources.get()
         config.skip_resources = self.skip_resources.get()
         config.detailed_resources = self.detailed_resources.get()
+        config.resources_download = self.resources_download.get()
         config.dataset_ids = self.query_input.get()
         config.message_level = self.message_level.get()
 
