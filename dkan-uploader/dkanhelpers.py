@@ -63,18 +63,24 @@ class HttpHelper:
 
     @staticmethod
     def get_all_dkan_categories():
-        pydkan_instance = dkanhandler.getApi()
         if not HttpHelper.dkan_categories:
-            HttpHelper.dkan_categories = HttpHelper.parse_admin_page_contents(pydkan_instance, '/admin/structure/taxonomy/tags')
+            HttpHelper.dkan_categories = HttpHelper.parse_admin_page_contents(dkanhandler.getApi(), '/admin/structure/taxonomy/tags')
         return HttpHelper.dkan_categories
 
 
     @staticmethod
     def get_all_dkan_tags():
-        pydkan_instance = dkanhandler.getApi()
         if not HttpHelper.dkan_tags:
-            HttpHelper.dkan_tags = HttpHelper.parse_admin_page_contents(pydkan_instance, '/admin/structure/taxonomy/dataset_tags')
+            HttpHelper.dkan_tags = HttpHelper.parse_admin_page_contents(dkanhandler.getApi(), '/admin/structure/taxonomy/dataset_tags')
         return HttpHelper.dkan_tags
+
+
+    @staticmethod
+    def get_all_dkan_fileformats():
+        if not HttpHelper.file_formats:
+            fileformats = HttpHelper.parse_admin_page_contents(dkanhandler.getApi(), '/admin/structure/taxonomy/format')
+            HttpHelper.file_formats = {str(value).lower():key for key, value in fileformats.items()}
+        return dict(HttpHelper.file_formats)
 
 
     @staticmethod
@@ -126,19 +132,6 @@ class HttpHelper:
         return filename
 
 
-
-
-
-
-
-    @staticmethod
-    def get_all_dkan_fileformats(pydkan_instance):
-        if not HttpHelper.file_formats:
-            fileformats = HttpHelper.parse_admin_page_contents(pydkan_instance, '/admin/structure/taxonomy/format')
-            HttpHelper.file_formats = {str(value).lower():key for key, value in fileformats.items()}
-        return HttpHelper.file_formats
-
-
     @staticmethod
     def parse_admin_page_contents(pydkan_instance, admin_page_path):
 
@@ -173,7 +166,6 @@ class HttpHelper:
         logging.debug(_("Admin-Scraping-Ergebnis: %s"), taglist)
 
         return taglist
-
 
 
     @staticmethod

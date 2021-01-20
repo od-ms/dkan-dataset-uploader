@@ -1,7 +1,7 @@
 import re
 import os.path
 import logging
-import hashlib
+from geomet import wkt
 from . import dkanhelpers
 from . import config
 
@@ -44,11 +44,9 @@ class Resource:
         self._row = row
 
 
-    def getUploadFilenameDELETE_ME(self):
-        return hashlib.md5(str(self._row[Resource.URL]).encode('utf-8')).hexdigest() + '.csv'
-
     def getUniqueId(self):
         return self._row[Resource.URL]
+
 
     def getUploadFilePath(self):
         filename = self.getValue(Resource.URL)
@@ -56,9 +54,25 @@ class Resource:
             return False
         file_path = os.path.join(config.download_dir, filename)
         if os.path.isfile(file_path) or os.path.islink(file_path):
+            self.checkHasValidFileExtension(file_path)
             return file_path
         else:
             return False
+
+
+    def checkHasValidFileExtension(self, filename):
+        match = re.search(r'\.([^.]+)$',filename)
+        if match:
+            file_extension = match.group(1).lower()
+            valid_fileformats = dkanhelpers.HttpHelper.get_all_dkan_fileformats()
+            if not file_extension in valid_fileformats:
+                logging.warning(" Problem bei Ressource-Upload: %s", filename)
+                logging.warning(" Dateierweiterung '%s' ist in der DKAN-Instanz nicht registriert.", file_extension)
+                logging.warning(" Mögliche Dateisuffixe: %s", valid_fileformats.keys())
+        else:
+            logging.error(" Problem bei Ressource-Upload: %s", filename)
+            logging.error(" Dateiname hat keine Dateierweiterung (z.B. '.csv').")
+
 
     @staticmethod
     def create(row):
@@ -188,6 +202,16 @@ class Dataset:
                 logging.error(_("Spalte '%s' hat unbekannten Wert '%s'. Datensatzbeschreibung wird nicht korrekt angezeigt werden."))
                 logging.error(_("Erlaubte Werte: %s "), Dataset.TEXT_FORMAT, value, possible)
 
+        # Validate spatial
+        if Dataset.GEO_AREA in row:
+            try:
+                ls_json = wkt.loads(row[Dataset.GEO_AREA])
+                logging.debug(_("Geo-Daten: %s"), ls_json)
+            except ValueError as err:
+                logging.error("Geo-Daten Fehler: %s", repr(err))
+                logging.warning("Geo-Coverage-Angabe wird ignoriert, da sie nicht WKT-kompatibel ist.")
+                row[Dataset.GEO_AREA] = ''
+
         new_object = Dataset(row)
         logging.info(_(" Datensatz-Felder: %s/%s ('%s')"), count_non_empty_dataset_fields, len(get_column_config_dataset()), new_object.getValue(Dataset.TITLE))
 
@@ -260,7 +284,7 @@ class Dataset:
             if has_error:
                 logging.error(_('Problem bei "%s". Mögliche Lösung:'), valueName)
                 logging.error(_('a) Bitte schreiben Sie %s immer in Anführungszeichen, z.B.: "Statistik", "API"'), valueName)
-                logging.error(_('b) Sie können außerdem nur %s verwenden, die im DKAN Administrationsbereich angelegt wurden.'), valueName)
+                logging.error(_('b) Sie können nur %s verwenden, die im DKAN Administrationsbereich angelegt wurden.'), valueName)
                 logging.error(_('Mögliche Werte für "%s" sind:'), valueName)
                 logging.error(_('%s'), all_tags_in_dkan.values())
             logging.debug("Gefundene tags: %s", value)

@@ -264,8 +264,13 @@ def getResourceDkanData(resource, nid, title):
         rFormat = "WMS"
 
     lowerFormat = rFormat.lower()
-    formatLookup = dkanhelpers.HttpHelper.get_all_dkan_fileformats(api)
-    formatId = formatLookup[lowerFormat] if (lowerFormat in formatLookup) else 70
+    formatLookup = dkanhelpers.HttpHelper.get_all_dkan_fileformats()
+    formatId = 0
+    if lowerFormat in formatLookup:
+        formatId = formatLookup[lowerFormat]
+    else:
+        logging.warning('Unbekanntes Dateiformat: %s', rFormat)
+        logging.warning('Wenn Sie dieses Dateiformat nutzen möchten, müssen Sie es erst über das DKAN-Adminstrationsinterface anlegen.')
 
     rTitle = resource.getValue(Resource.NAME)
     if not rTitle:
@@ -377,9 +382,8 @@ def handleFileUpload(data, nodeId):
 
     if "upload_file" in data:
         filename = data["upload_file"]
-        logging.info("  Ressource-Upload Node %s: %s", nodeId, filename)
-        logging.debug("Node data: %s", data)
-
+        logging.info(_("  Ressource-Upload Node %s: %s"), nodeId, filename)
+        logging.debug(_("  Node Daten: %s"), data)
         aResponse = api.attach_file_to_node(filename, nodeId, 'field_upload')
         logging.debug(_("  Ergebnis: %s - %s"), aResponse.status_code, aResponse.text)
 
@@ -403,8 +407,6 @@ def updateResources(newResources:List[Resource], existingResources, dataset, for
         else:
             logging.debug(_("'-> [keine URL] Resourcen ohne URLS werden nicht unterstützt. Lösche Resource."))
             uniqueId = resourceData['nid']
-
-
 
         # check if the existing resource url also is in the new resource urls
         el = [x for x in newResources if x.getUniqueId() == uniqueId]
