@@ -2,6 +2,9 @@ import os
 import sys
 import subprocess
 import logging
+import multiprocessing
+import time
+import threading
 from tkinter import scrolledtext, Tk, Frame, Label, Checkbutton, Button, Entry, StringVar, Text, IntVar, PhotoImage ,\
     HORIZONTAL, DISABLED, SUNKEN, RIDGE, INSERT, NORMAL, END, N, S, W, E, OptionMenu
 from tkinter import ttk
@@ -83,7 +86,13 @@ class LoggingTextHandler(logging.Handler):
 class MainGui(Frame):
     """Display the Main GUI Window"""
 
+    wwindow = None
+    thrd_name = ''
+    thrd = None
+
     def __init__(self, window):
+
+        self.wwindow = window
 
         # Create two top level frames
         Frame.__init__( self, window )
@@ -216,13 +225,13 @@ class MainGui(Frame):
         aktion_label.grid(row=currentRow, column=1, columnspan=2, sticky=W, pady=(10, 0))
 
         currentRow +=1
-        Label(master, text="Optionen:").grid(row=currentRow, column=0, sticky=E, pady=(y_spacing, 0))
+        Label(master, text=_("Optionen:")).grid(row=currentRow, column=0, sticky=E, pady=(y_spacing, 0))
         self.skip_resources = IntVar(value=(1 if config.skip_resources else 0))
-        Checkbutton(master, text = "Nur Datensätze, keine Ressourcen",variable = self.skip_resources).grid(row=currentRow, column=1, columnspan=2,  sticky=W)
+        Checkbutton(master, text = _("Nur Datensätze, keine Ressourcen"),variable = self.skip_resources).grid(row=currentRow, column=1, columnspan=2,  sticky=W)
 
         currentRow +=1
         self.check_resources = IntVar(value=(1 if config.check_resources else 0))
-        Checkbutton(master, text = "Ressourcen-URLS überprüfen",variable = self.check_resources).grid(row=currentRow, column=1, columnspan=2,  sticky=W)
+        Checkbutton(master, text = _("Ressourcen-URLs überprüfen"),variable = self.check_resources).grid(row=currentRow, column=1, columnspan=2,  sticky=W)
 
         currentRow +=1
         self.detailed_resources = IntVar(value=(1 if config.detailed_resources else 0))
@@ -265,6 +274,15 @@ class MainGui(Frame):
         self.info_box = scrolledtext.ScrolledText(self.master_right, state='normal', wrap='none', relief=RIDGE)
         self.info_box.configure(font='TkFixedFont')
         self.info_box.grid(row=0, column=0, sticky=(N, S, E, W))
+
+        # Progressbar
+        self.progress_text = StringVar(self.master_right)
+        self.progress_text.set('')
+        self.progress_label = Label(self.master_right, textvariable=self.progress_text)
+        self.progress_label.grid(row=1, column=0, sticky=W+E)
+        self.progress = ttk.Progressbar(self.master_right, orient = HORIZONTAL, length = 100, mode = 'indeterminate')
+        self.progress.configure(mode='determinate',value=0)
+        self.progress.grid(row=2, column=0, sticky=(N, S, E, W))
 
         # Create textLogger
         self.log_textwindow_handler = LoggingTextHandler(self.info_box)
@@ -327,21 +345,8 @@ class MainGui(Frame):
             launchExternal(filename)
 
 
-    def action_download(self):
-        self.update_config()
-        self.message_headline(_('Aktion: DKAN auslesen'))
-        # self.download_button.configure(state=DISABLED)
-        try:
-            excelwriter.write(False)
-        except AbortProgramError as err:
-            logging.error(err.message)
-
-        self.message_with_time('Aktion fertig: DKAN auslesen')
-        # self.download_button.configure(state=NORMAL)
-
-
     def action_check_excel(self):
-        self.message_headline(_('Aktion: Dateipfade prüfen'))
+        self.show_progressbar(_('Dateipfade prüfen'))
         self.update_config()
         excelwriter.test_excel_file(False)
 
@@ -362,20 +367,51 @@ class MainGui(Frame):
         else:
             logging.warning(_("Verzeichnis ist nicht beschreibbar. Downloads können nicht durchgeführt werden."))
 
-        self.message_with_time('Aktion fertig: Dateipfade prüfen')
+        self.cleanup_progressbar()
+
+
+    def check_thread(self):
+        if not self.thrd.is_alive():
+            self.cleanup_progressbar()
+            return
+        self.wwindow.after(500, self.check_thread)
+
+
+    def cleanup_progressbar(self):
+        self.message_with_time(_('Aktion fertig: {}').format(self.thrd_name))
+        self.progress_text.set('')
+        self.progress.stop()
+        self.progress.configure(mode='determinate',value=0)
+
+    def show_progressbar(self, thread_name):
+        self.message_headline(_('Aktion: {}').format(thread_name))
+        self.progress_text.set(_('Vorgang läuft: {}'.format(thread_name)))
+        self.thrd_name = thread_name
+        self.progress.configure(mode='indeterminate')
+        self.progress.start()
+
+    def execute_thread(self, fn, thread_name):
+        self.show_progressbar(thread_name)
+        self.thrd = threading.Thread(target=fn)
+        self.thrd.daemon = True
+        self.thrd.start()
+        self.check_thread()
 
 
     def action_status(self):
-        self.message_headline(_('Aktion: Systemtest & Status'))
         self.update_config()
-        excelwriter.test_and_status(False)
-        self.message_with_time('Aktion fertig: Systemtest & Status')
+        self.execute_thread(lambda: excelwriter.test_and_status(False), 'Systemtest & Status')
+
 
     def action_test(self):
-        self.message_headline(_('Aktion: DKAN-API Schreibtest'))
         self.update_config()
-        dkan_api_test.test()
-        self.message_with_time('Aktion fertig: DKAN-API Schreibtest')
+        self.execute_thread(dkan_api_test.test, 'DKAN-API Schreibtest')
+
+
+    def action_download(self):
+        self.update_config()
+        self.execute_thread(lambda: excelwriter.write(False), 'DKAN auslesen')
+
 
     def action_upload(self):
         result = messagebox.askokcancel(
@@ -383,7 +419,7 @@ class MainGui(Frame):
             _("Die Datensätze aus der Excel-Datei werden nun ins DKAN geschrieben.\n\nWirklich fortfahren?"))
         if result:
             self.update_config()
-            self.message_headline(_('Aktion: DKAN schreiben'))
+            self.show_progressbar(_('DKAN schreiben'))
             self.clear_temp_dir()
             try:
                 excelreader.read(False)
@@ -391,7 +427,7 @@ class MainGui(Frame):
                 logging.error(err.message)
 
             self.clear_temp_dir()
-            self.message_with_time('Aktion fertig: DKAN schreiben')
+            self.cleanup_progressbar()
 
 
     def message_headline(self, message):
