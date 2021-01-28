@@ -6,6 +6,7 @@ import sys
 import json
 import logging
 import hashlib
+import traceback
 from jsonschema import validate
 from jsonschema.exceptions import ValidationError
 import xlrd
@@ -28,6 +29,7 @@ class ExcelResultFile:
     workbook = ''
     worksheet = ''
     bold = None
+    small_font = None
     current_row = 0
     current_dataset_nr = 0
     existing_dataset_ids = {}
@@ -83,12 +85,12 @@ class ExcelResultFile:
                 if dataset_id:
                     self.existing_dataset_ids[dataset_id] = True
 
-            self.initialize_new_excel_file(self.column_mapping)
+            self.initialize_new_excel_file(True)
 
         except FileNotFoundError:
             logging.info(_("Excel-Datei existiert noch nicht und wird erstellt."))
             self.column_mapping = list(self.get_column_config_dataset().keys()) + list(self.get_column_config_resource().keys())
-            self.initialize_new_excel_file(self.get_column_config())
+            self.initialize_new_excel_file(False)
 
         for row in old_excel_content:
             self.add_plain_row(row)
@@ -101,9 +103,42 @@ class ExcelResultFile:
         return self.existing_dataset_ids
 
 
-    def initialize_new_excel_file(self, first_row):
+    def initialize_new_excel_file(self, is_existing_excel_file):
+        if is_existing_excel_file:
+            first_row = self.get_column_config()
+        else:
+            first_row = self.column_mapping
 
-        # find "extra"-columns start & end to make them retractable in the excel
+        # Init workbook objects
+        self.workbook = xlsxwriter.Workbook(self.filename)
+        self.worksheet = self.workbook.add_worksheet()
+        self.bold = self.workbook.add_format({'bold': True})
+        self.small_font = self.workbook.add_format({'font_size': 8})
+
+        # Set column widths
+        self.worksheet.set_column('A:A', 15)
+        self.worksheet.set_column('C:C', 20)
+        self.worksheet.set_column(first_col=0, last_col=0, cell_format=self.small_font)
+
+        # Add group ("level: 1") to some columns so that they are "einklappbar"
+        self.worksheet.set_column('D:E', 16, None, {'level': 1})            # Tags, Groups
+        self.worksheet.set_column('F:F', 30, self.small_font, {'level': 1}) # Description
+        self.worksheet.set_column('G:G', 10, None, {'level': 1})            # Text_format
+
+        # Homepage bekommt kein Level weil das ist der Gruppen-Trenner
+        # (zwischen zwei Gruppen muss immer ein Feld sein, das keine Gruppe hat)
+        self.worksheet.set_column('H:H', 20, self.small_font)               # Homepage
+
+        # Große Gruppe mit den diversen sonstigen Feldern
+        self.worksheet.set_column('J:AD', None, None, {'level': 1})
+        self.set_extra_columns_group(first_row)
+
+        # write header row
+        self.worksheet.write_row('A1', first_row, self.bold)
+
+
+    def set_extra_columns_group(self, first_row):
+        ''' find "extra"-columns start & end to make them retractable in the excel '''
         extra_start = 0
         extra_end = 0
         column_nr = 0
@@ -114,28 +149,15 @@ class ExcelResultFile:
             elif extra_start and not extra_end:
                 extra_end = column_nr
             column_nr += 1
-        if not extra_end:
-            extra_end = len(first_row)-1
-
-        # init workbook objects
-        self.workbook = xlsxwriter.Workbook(self.filename)
-        self.worksheet = self.workbook.add_worksheet()
-        self.bold = self.workbook.add_format({'bold': True})
-        self.small_font = self.workbook.add_format({'font_size': 8})
-        self.worksheet.set_column('A:A', 15)
-        self.worksheet.set_column('C:C', 20)
-        self.worksheet.set_column(first_col=0, last_col=0, cell_format=self.small_font)
-
-        # Add group ("level: 1") to some columns so that they are "einklappbar"
-        self.worksheet.set_column('D:E', 16, None, {'level': 1})            # Tags, Groups
-        self.worksheet.set_column('F:G', 30, self.small_font, {'level': 1}) # Description, Homepage
-        self.worksheet.set_column('H:H', 10, None, {'level': 1})
-        self.worksheet.set_column('J:AD', None, None, {'level': 1})
+        if extra_start: # adjust group end
+            if not extra_end:
+                extra_end = len(first_row)-1
+            elif extra_end and (extra_end > extra_start+1):
+                extra_end -= 1
+            elif extra_end and (extra_end <= extra_start+1):
+                extra_end = 0 # dont create group if only 1 extra
         if extra_start and extra_end:
             self.worksheet.set_column(extra_start, extra_end, None, None, {'level': 1})
-
-        # write header row
-        self.worksheet.write_row('A1', first_row, self.bold)
 
 
     def get_column_config(self):
@@ -339,7 +361,7 @@ class ExcelResultFile:
 
                 logging.debug(_(
                     "Ressource %s: %s %s"),
-                    resource_row[constants.Resource.TYP],
+                    resource_row[constants.Resource.TYP] if constants.Resource.TYP in resource_row else resource_row[constants.Resource.TYP2],
                     resource_row[constants.Resource.FORMAT],
                     resource_row[constants.Resource.NAME])
 
@@ -479,83 +501,89 @@ class Dkan2Excel:
 
 
     def run(self, command_line_excel_filename):
-        excel_filename = command_line_excel_filename if command_line_excel_filename else config.excel_filename
+        try:
+            excel_filename = command_line_excel_filename if command_line_excel_filename else config.excel_filename
 
-        self.showConfigVars()
+            self.showConfigVars()
 
-        dkanApi = DkanApiAccess()
-        data = dkanApi.read_package_list_with_resources()
-        number_of_datasets = len(data['result'][0])
-        logging.info("Anzahl Datensätze im DKAN: %s", number_of_datasets)
+            dkanApi = DkanApiAccess()
+            data = dkanApi.read_package_list_with_resources()
+            number_of_datasets = len(data['result'][0])
+            logging.info("Anzahl Datensätze im DKAN: %s", number_of_datasets)
 
-        extra_columns = self.read_all_extra_fields_from_dkan(dkanApi, data)
+            extra_columns = self.read_all_extra_fields_from_dkan(dkanApi, data)
 
-        excel_file = ExcelResultFile(excel_filename, extra_columns)
-        excel_file.initialize_new_excel_file_with_existing_content()
+            excel_file = ExcelResultFile(excel_filename, extra_columns)
+            excel_file.initialize_new_excel_file_with_existing_content()
 
-        existing_dataset_ids = excel_file.get_existing_dataset_ids()
-        nr_of_changes = 0
+            existing_dataset_ids = excel_file.get_existing_dataset_ids()
+            nr_of_changes = 0
 
-        limit = 100000
-        dataset_query = config.dataset_ids
-        match = re.search(r'limit\s*=\s*(\d+)\s*',dataset_query,flags = re.S|re.M)
-        if match:
-            limit = int(match.group(1))
-            logging.info(_("Beschränkung per 'Limit'-Query auf %s Datensätze."), limit)
-            dataset_query = dataset_query.replace(match.group(0), '')
+            limit = 100000
+            dataset_query = config.dataset_ids
+            match = re.search(r'limit\s*=\s*(\d+)\s*',dataset_query,flags = re.S|re.M)
+            if match:
+                limit = int(match.group(1))
+                logging.info(_("Beschränkung per 'Limit'-Query auf %s Datensätze."), limit)
+                dataset_query = dataset_query.replace(match.group(0), '')
 
-        # write all datasets and resources to excel file
-        for package_data in data['result'][0]:
+            # write all datasets and resources to excel file
+            for package_data in data['result'][0]:
 
-            isValid = dkanApi.validateJson(package_data, constants.datasetSchema)
-            if not isValid:
-                raise ValueError('Dataset format is not valid. Scroll up, see detailed error above')
+                isValid = dkanApi.validateJson(package_data, constants.datasetSchema)
+                if not isValid:
+                    raise ValueError('Dataset format is not valid. Scroll up, see detailed error above')
 
-            dataset_id = package_data['id']
-            if dataset_query and (dataset_query.find(dataset_id) == -1):
-                logging.debug(_("%s nicht in %s"), dataset_id, dataset_query)
-                continue
-            elif dataset_query:
-                logging.info(_("Datensatz gefunden: %s"), dataset_id)
+                dataset_id = package_data['id']
+                if dataset_query and (dataset_query.find(dataset_id) == -1):
+                    logging.debug(_("%s nicht in %s"), dataset_id, dataset_query)
+                    continue
+                elif dataset_query:
+                    logging.info(_("Datensatz gefunden: %s"), dataset_id)
 
-            if (not config.overwrite_rows) and (dataset_id in existing_dataset_ids):
-                logging.info(_("Bereits im Excel. Überspringe %s"), dataset_id)
-                continue
+                if (not config.overwrite_rows) and (dataset_id in existing_dataset_ids):
+                    logging.info(_("Bereits im Excel. Überspringe %s"), dataset_id)
+                    continue
 
-            if package_data['type'] != 'Dataset':
-                logging.debug(_("Objekt ist kein 'Dataset'. Überspringe %s"), dataset_id)
-                continue
+                if package_data['type'] != 'Dataset':
+                    logging.debug(_("Objekt ist kein 'Dataset'. Überspringe %s"), dataset_id)
+                    continue
 
-            node_data = None
-            # Sadly all the api endpoints with a list of datasets have missing data
-            # That is why we have to make two extra calls per package_data.  .. maybe there is another way..?
-            if config.x_download_extended_dataset_infos:
-                node_data = dkanApi.readDatasetNodeJson(dataset_id, None)
+                node_data = None
+                # Sadly all the api endpoints with a list of datasets have missing data
+                # That is why we have to make two extra calls per package_data.  .. maybe there is another way..?
+                if config.x_download_extended_dataset_infos:
+                    node_data = dkanApi.readDatasetNodeJson(dataset_id, None)
 
-            # http-check package_data resources and add check result into nested resource list
-            if (not config.skip_resources) and ('resources' in package_data):
-                for index, resource in enumerate(package_data['resources']):
-                    if config.check_resources:
-                        logging.debug("Check: %s", resource['url'])
-                        (ok, response_code) = dkanApi.get_resource_http_status(resource['url'])
-                        logging.debug("Response: %s %s", ok, response_code)
-                    else:
-                        ok = response_code = None
-                    package_data['resources'][index]['response_ok'] = ok
-                    package_data['resources'][index]['response_code'] = response_code
+                # http-check package_data resources and add check result into nested resource list
+                if (not config.skip_resources) and ('resources' in package_data):
+                    for index, resource in enumerate(package_data['resources']):
+                        if config.check_resources:
+                            logging.debug("Check: %s", resource['url'])
+                            (ok, response_code) = dkanApi.get_resource_http_status(resource['url'])
+                            logging.debug("Response: %s %s", ok, response_code)
+                        else:
+                            ok = response_code = None
+                        package_data['resources'][index]['response_ok'] = ok
+                        package_data['resources'][index]['response_code'] = response_code
 
-            excel_file.add_dataset(package_data, node_data)
-            nr_of_changes += 1
-            if nr_of_changes >= limit:
-                logging.info(_("Limit von %s erreicht"), limit)
-                break
-
-
-        excel_file.finish()
-        logging.info("")
-        logging.info(_('Vorgang abgeschlossen, %s Datensätze nach Excel geschrieben.'), nr_of_changes)
+                excel_file.add_dataset(package_data, node_data)
+                nr_of_changes += 1
+                if nr_of_changes >= limit:
+                    logging.info(_("Limit von %s erreicht"), limit)
+                    break
 
 
+            excel_file.finish()
+            logging.info("")
+            logging.info(_('Vorgang abgeschlossen, %s Datensätze nach Excel geschrieben.'), nr_of_changes)
+
+        except AbortProgramError as err:
+            logging.error(err.message)
+
+        except Exception as e:
+            logging.error(_("Fehler #23: %s"), repr(e))
+            logging.error(traceback.format_exc())
 
 
 def write(command_line_excel_filename):
