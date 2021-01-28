@@ -45,7 +45,33 @@ class Resource:
 
 
     def getUniqueId(self):
-        return self._row[Resource.URL]
+        if Resource.URL in self._row:
+            uniqueId = self._row[Resource.URL]
+        elif Resource.RESOURCE_ID in self._row:
+            uniqueId = self._row[Resource.RESOURCE_ID]
+        else:
+            uniqueId = Resource.NAME
+        return uniqueId
+
+
+    def equals_existing_resource(self, resourceData):
+        uniqueId = ''
+        if ("und" in resourceData['field_link_api']) and (resourceData['field_link_api']['und'][0]['url']):
+            uniqueId = resourceData['field_link_api']['und'][0]['url']
+        elif ('und' in resourceData['field_link_remote_file']) and (resourceData['field_link_remote_file']['und'][0]['uri']):
+            uniqueId = resourceData['field_link_remote_file']['und'][0]['uri']
+        elif ('und' in resourceData['field_upload']) and (resourceData['field_upload']['und'][0]['filename']):
+            uniqueId = resourceData['field_upload']['und'][0]['filename']
+
+        if ('uuid' in resourceData) and (Resource.RESOURCE_ID in self._row):
+            return self._row[Resource.RESOURCE_ID] == resourceData['uuid']
+        elif uniqueId and (Resource.URL in self._row):
+            return self._row[Resource.URL] == uniqueId
+        elif ('title' in resourceData) and (Resource.NAME in self._row):
+            return resourceData['title'] == self._row[Resource.NAME]
+        else:
+            logging.warning(' Ressourcen konnten nicht verglichen werden. Auch im DKAN vorhandene Ressourcen müssen mindestens den Titel ausgefüllt haben.')
+            return False
 
 
     def getUploadFilePath(self):
@@ -57,6 +83,8 @@ class Resource:
             self.checkHasValidFileExtension(file_path)
             return file_path
         else:
+            logging.error(_(" Achtung: URL sieht aus wie ein Dateiname, aber Datei existiert nicht:"))
+            logging.error(" %s => %s", filename, file_path)
             return False
 
 
@@ -66,9 +94,7 @@ class Resource:
             file_extension = match.group(1).lower()
             valid_fileformats = dkanhelpers.HttpHelper.get_all_dkan_fileformats()
             if not file_extension in valid_fileformats:
-                logging.warning(" Problem bei Ressource-Upload: %s", filename)
                 logging.warning(" Dateierweiterung '%s' ist in der DKAN-Instanz nicht registriert.", file_extension)
-                logging.warning(" Mögliche Dateisuffixe: %s", valid_fileformats.keys())
         else:
             logging.error(" Problem bei Ressource-Upload: %s", filename)
             logging.error(" Dateiname hat keine Dateierweiterung (z.B. '.csv').")
@@ -103,6 +129,8 @@ class Resource:
 
 
     def getValue(self, valueName):
+        if (valueName == Resource.TYP) and (Resource.TYP not in self._row) and (Resource.TYP2 in self._row):
+            return self._row[Resource.TYP2]
         return self._row[valueName] if valueName in self._row else ''
 
 
@@ -426,8 +454,8 @@ def get_column_config_resource():
     # - more details about the resource type (  api, remote_file, upload, datastore )
 
     columns = {
-        'Lfd-Nr': 'lfd-nr', # specific for DKAN-Downloader
-        'Resource-ID': 'id',
+        'Lfd-Nr': 'lfd-nr',     # specific for DKAN-Downloader
+        'Resource-ID': 'id',    # this is ckan package_id (uuid), e.g. a07c5d85-ff34-4093-8613-76a86de7a7a9
         'Resource-Name': 'name',
         'Format': 'format',
         'Resource-Typ': 'RTYPE',

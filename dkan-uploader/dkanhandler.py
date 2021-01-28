@@ -327,13 +327,13 @@ def createResource(resource: Resource, nid, title):
 
 def createResourceFromData(data):
     connect()
-    logging.info(_(" '-> [wird erstellt] %s"), data['title'])
+    logging.info(_(" -> [wird erstellt] %s"), data['title'])
     r = api.node('create', data=data)
     if r.status_code != 200:
         raise Exception('Error during create resource:', r, r.text)
     resourceResponse = r.json()
     newResourceNodeId = resourceResponse['nid']
-    logging.debug(_('Neue Resource wurde erstellt: %s'), newResourceNodeId)
+    logging.debug(_('  Neue Resource wurde erstellt: %s'), newResourceNodeId)
     handleFileUpload(data, newResourceNodeId)
 
 
@@ -382,7 +382,7 @@ def handleFileUpload(data, nodeId):
 
     if "upload_file" in data:
         filename = data["upload_file"]
-        logging.info(_("  Ressource-Upload Node %s: %s"), nodeId, filename)
+        logging.info(_("  Datei-Upload zu Resource %s: %s"), nodeId, filename)
         logging.debug(_("  Node Daten: %s"), data)
         aResponse = api.attach_file_to_node(filename, nodeId, 'field_upload')
         logging.debug(_("  Ergebnis: %s - %s"), aResponse.status_code, aResponse.text)
@@ -398,24 +398,26 @@ def updateResources(newResources:List[Resource], existingResources, dataset, for
         # Don't use existingResource, use resourceData instead!
 
         resourceData = getDatasetDetails(existingResource['target_id'])
-        if "und" in resourceData['field_link_api']:
+        if ("und" in resourceData['field_link_api']) and (resourceData['field_link_api']['und'][0]['url']):
             uniqueId = resourceData['field_link_api']['und'][0]['url']
-        elif 'und' in resourceData['field_link_remote_file']:
+        elif ('und' in resourceData['field_link_remote_file']) and (resourceData['field_link_remote_file']['und'][0]['uri']):
             uniqueId = resourceData['field_link_remote_file']['und'][0]['uri']
-        elif 'und' in resourceData['field_upload']:
+        elif ('und' in resourceData['field_upload']) and (resourceData['field_upload']['und'][0]['filename']):
             uniqueId = resourceData['field_upload']['und'][0]['filename']
         else:
             logging.debug(_("'-> [keine URL] Resourcen ohne URLS werden nicht unterstützt. Lösche Resource."))
             uniqueId = resourceData['nid']
 
+        logging.debug("%s IN %s", uniqueId, [x.getUniqueId() for x in newResources])
+
         # check if the existing resource url also is in the new resource urls
-        el = [x for x in newResources if x.getUniqueId() == uniqueId]
+        el = [x for x in newResources if x.equals_existing_resource(resourceData)]
         if el:
             # Found url => That means this is an update
 
             # remove element from the resources that will be created
-            newResources = [x for x in newResources if x.getUniqueId() != uniqueId]
             newResource = el[0]
+            newResources.remove(newResource)
             # Only update if resource title has changed
             newData = getResourceDkanData(newResource, dataset['nid'], dataset['title'])
             if (newData['title'] != resourceData['title']) or forceUpdate:
