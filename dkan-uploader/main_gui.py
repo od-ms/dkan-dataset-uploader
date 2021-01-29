@@ -382,6 +382,7 @@ class MainGui(Frame):
         self.progress_text.set('')
         self.progress.stop()
         self.progress.configure(mode='determinate',value=0)
+        self.set_all_widget_state("normal")
 
     def show_progressbar(self, thread_name):
         self.message_headline(_('Aktion: {}').format(thread_name))
@@ -389,6 +390,14 @@ class MainGui(Frame):
         self.thrd_name = thread_name
         self.progress.configure(mode='indeterminate')
         self.progress.start()
+        self.set_all_widget_state("disabled")
+
+    def set_all_widget_state(self, wstate):
+        for widget in self.master.winfo_children():
+            wtype = str(widget.winfo_class())
+            if wtype == 'Button' or wtype == 'Entry' or wtype == 'Checkbutton' or wtype == 'Menubutton':
+                widget.configure(state=wstate)
+
 
     def execute_thread(self, fn, thread_name):
         self.show_progressbar(thread_name)
