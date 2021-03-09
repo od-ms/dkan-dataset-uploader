@@ -754,7 +754,7 @@ def print_excel_status(command_line_excel_filename):
     try:
         wb = xlrd.open_workbook(loc)
     except FileNotFoundError:
-        logging.info(" Datei existiert noch nicht, es können keine Informationen zur Excel-Datei ausgegben werden.")
+        logging.warning(" Datei existiert noch nicht, es können keine Informationen zur Excel-Datei ausgegben werden.")
         return
 
     sheet = wb.sheet_by_index(0)

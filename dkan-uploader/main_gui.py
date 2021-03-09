@@ -124,16 +124,28 @@ class MainGui(Frame):
         # -- Main layout --
         currentRow = 0
         y_spacing = 10
+        headline_font = ("Arial", 11, "bold")
 
         # Headline
-        headline_label = Label(master, text="DKAN Uploader", font=("Arial Bold", 30))
+        headline_label = Label(master, text="DKAN Uploader", foreground='navy', font=("Helvetica", 20, "bold"))
         headline_label.grid(row=0, column=0, columnspan=3)
 
         # Show App Icon in Header
-        p2 = p1.zoom(2)
-        labelWuerfel = Label(master, image=p2)
-        labelWuerfel.image=p2 # keep reference to image so garbe collection doesnt remove it..
-        labelWuerfel.grid(row=0, column=0, sticky=W)
+        #p2 = p1.zoom(2)
+        #labelWuerfel = Label(master, image=p2)
+        #labelWuerfel.image=p2 # keep reference to image so garbe collection doesnt remove it..
+        #labelWuerfel.grid(row=0, column=0, sticky=W)
+
+        # Show help icon in header
+        currentRow += 1
+        help_button = Button(master, text="?", command=self.action_help)
+        help_button.grid(row=0, column=0, sticky=W)
+
+
+        # Config headline
+        currentRow += 1
+        config_label = Label(master, text=_("Konfiguration"), font=headline_font)
+        config_label.grid(row=currentRow, column=1, columnspan=2, sticky=W, pady=(10, 0))
 
         # Filename inputs
         currentRow += 1
@@ -141,9 +153,9 @@ class MainGui(Frame):
         self.download_dir = Entry(master, validate="key", validatecommand=(vcmd, '%P'))
         self.download_dir.delete(0, END)
         self.download_dir.insert(0, config.download_dir)
-        self.download_dir.grid(row=currentRow, column=1, columnspan=2, sticky=W+E)
+        self.download_dir.grid(row=currentRow, column=1, columnspan=2, sticky=W+E, pady=(y_spacing, 0))
         self.download_label = Label(master, text=_("Ressourcen-Verzeichnis:"))
-        self.download_label.grid(row=currentRow, column=0, sticky=E)
+        self.download_label.grid(row=currentRow, column=0, sticky=E, pady=(y_spacing, 0))
         currentRow += 1
         self.filename_input = Entry(master, validate="key", validatecommand=(vcmd, '%P'))
         self.filename_input.delete(0, END)
@@ -194,7 +206,7 @@ class MainGui(Frame):
         currentRow += 1
         ttk.Separator(master, orient=HORIZONTAL).grid(column=0, row=currentRow, columnspan=3, sticky='we', pady=(20, 0))
         currentRow += 1
-        aktion_label = Label(master, text=_("Einstellungen"), font=("Arial Bold", 11))
+        aktion_label = Label(master, text=_("Einstellungen"), font=headline_font)
         aktion_label.grid(row=currentRow, column=1, columnspan=2, sticky=W, pady=(10, 0))
 
         # Input field for Dataset Query/Limit
@@ -221,7 +233,7 @@ class MainGui(Frame):
         currentRow += 1
         ttk.Separator(master, orient=HORIZONTAL).grid(column=0, row=currentRow, columnspan=3, sticky='we', pady=(20, 0))
         currentRow += 1
-        aktion_label = Label(master, text=_("Lese Daten aus DKAN"), font=("Arial Bold", 11))
+        aktion_label = Label(master, text=_("Lese Daten aus DKAN"), font=headline_font)
         aktion_label.grid(row=currentRow, column=1, columnspan=2, sticky=W, pady=(10, 0))
 
         currentRow +=1
@@ -249,7 +261,7 @@ class MainGui(Frame):
         currentRow += 1
         ttk.Separator(master, orient=HORIZONTAL).grid(column=0, row=currentRow, columnspan=3, sticky='we', pady=(20, 0))
         currentRow += 1
-        aktion_label = Label(master, text=_("Schreibe Daten zum DKAN"), font=("Arial Bold", 11))
+        aktion_label = Label(master, text=_("Schreibe Daten zum DKAN"), font=headline_font)
         aktion_label.grid(row=currentRow, column=1, columnspan=2, sticky=W, pady=(10, 0))
 
         currentRow += 1
@@ -340,10 +352,13 @@ class MainGui(Frame):
         ''' Open external file "with a double click" '''
         filename = self.filename_input.get()
         if not os.path.isfile(filename):
-            logging.error(_("Die Datei '%s' existiert nicht."))
+            logging.error(_("Die Datei '%s' existiert nicht."), filename)
         else:
             launchExternal(filename)
 
+
+    def action_help(self):
+        launchExternal('docs/index.html')
 
     def action_check_excel(self):
         self.show_progressbar(_('Dateipfade prüfen'))

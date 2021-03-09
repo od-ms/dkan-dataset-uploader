@@ -44,8 +44,10 @@ Diese Konfiguration wird beim Aufruf einer Aktion automatisch in einer Datei *co
 
 ### Einstellungen
 
-* *Datensatz-Beschränkung*: Wenn Sie nicht möchten, dass alle Datensätze des DKAN bearbeitet werden, sondern wenn Sie dies auf einzelne Datensätze einschränken möchten, So nutzen Sie dafür das Feld "Datensatz-Beschränkung". Dort können Sie die IDs der Datensätze eintragen, die gelesen oder geschrieben werden sollen. Bei mehreren Datensätzen trennen Sie diese per Komma, z.B.: "aca473a1-f20c-467a-b1ab-021bd93c4962, 2ca04273-af8d-4f47-a7c8-c455a4979354"
-* *Info-Level*: Wenn Sie mehr Informationen über den Ablauf des Programms erhalten möchten, dann können das Info-Level auf "Debug" stellen. Im Fenster für Logmeldungen werden dann in hellgrauer Schrift zusätzliche Statusmeldungen ausgegeben. Dies kann Ihnen z.B. auch bei der Fehlersuche helfen, falls DKAN-Uploader nicht korrekt funktioniert.
+* *Datensatz-Beschränkung*: Wenn Sie nicht möchten, dass alle Datensätze des DKAN bearbeitet werden, sondern wenn Sie dies auf einzelne Datensätze einschränken möchten, dann nutzen Sie dafür das Feld "Datensatz-Beschränkung":
+  * Beschränkung auf einzelnen Datensatz per ID: Sie können IDs der Datensätze eintragen, die gelesen oder geschrieben werden sollen. Bei mehreren Datensätzen trennen Sie diese per Komma. Steht im Feld z.B.: `aca473a1-f20c-467a-b1ab-021bd93c4962, 2ca04273-af8d-4f47-a7c8-c455a4979354`, dann wird beim betätigen des Button "Excel -> DKAN" nur die Zeilen aus der Excel-Datei bearbeitet, die die angegebenen IDs in der ID-Spalte enthalten. Wird keine der IDs gefunden, dann wird keine Aktion ausgeführt.
+  * Beschränkung auf Anzahl Datensätze: Schreiben Sie in das Feld `limit=X`, wobei die X die Anzahl der zu lesenden oder schreibenden Datensätze ist. Wenn im Feld "Datensatz-Beschränkung" z.B. `limit=2` steht, dann werden nur 2 Datensätze aus dem DKAN oder aus ihrer Excel-Datei gelesen, und danach wird der Prozess beendet.
+* *Info-Level*: Wenn Sie mehr Informationen über den Ablauf des Programms erhalten möchten, dann können das Info-Level auf "Debug" stellen. Im Fenster für Logmeldungen werden dann in hellgrauer Schrift zusätzliche Statusmeldungen ausgegeben. Dies kann Ihnen z.B. auch bei der Fehlersuche helfen, falls DKAN-Uploader nicht wie erwartet funktioniert.
 
 ### Export von Datensatz- und Ressourcen-Informationen aus dem DKAN in eine Excel-Datei
 
