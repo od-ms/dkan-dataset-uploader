@@ -2,9 +2,8 @@ import os
 import sys
 import subprocess
 import logging
-import multiprocessing
-import time
 import threading
+import markdown
 from tkinter import scrolledtext, Tk, Frame, Label, Checkbutton, Button, Entry, StringVar, Text, IntVar, PhotoImage ,\
     HORIZONTAL, DISABLED, SUNKEN, RIDGE, INSERT, NORMAL, END, N, S, W, E, OptionMenu
 from tkinter import ttk
@@ -54,6 +53,22 @@ def isWritable(directory):
     except Exception as e:
         logging.error("Fehler beim Verzeichniszugriff: %s", repr(e))
         return False
+
+def compileDocs():
+    with open("docs/index.md", "r", encoding="utf-8") as input_file:
+        text = input_file.read()
+        html = markdown.markdown(text)
+        html = '<html><head><style type="text/css">\
+            body {background-color:white;font-family:Verdana, Geneva, Tahoma, sans-serif;margin: 0 auto;\
+            max-width: 60em;padding: 40px;margin: 2em auto 9em;background: #fff;color: #333; position: relative;box-shadow: 0 0.3em 1em #000;}\
+            p {text-align: justify;}\
+            html {background-color:lightsteelblue}\
+            code {font-weight: bold;padding: 0 5px;background-color: #eee;border-radius: 4px;white-space: pre-line;}\
+            </style></head><body>' + html
+
+        with open("docs/index.html", "w", encoding="utf-8", errors="xmlcharrefreplace") as output_file:
+            output_file.write(html)
+
 
 class LoggingTextHandler(logging.Handler):
     """This class allows you to log to a Tkinter Text or ScrolledText widget"""
@@ -167,9 +182,9 @@ class MainGui(Frame):
 
         # Excel file action buttons
         bb = Button(master, text=_("Dateipfade prüfen"), command=self.action_check_excel)
-        bb.grid(row=currentRow, column=1, sticky=W+E, pady=(0, y_spacing))
+        bb.grid(row=currentRow, column=1, sticky=W+E, pady=(y_spacing, y_spacing))
         bb2 = Button(master, text=_("Excel-Datei öffnen"), command=self.action_open)
-        bb2.grid(row=currentRow, column=2, sticky=W+E, pady=(0, y_spacing))
+        bb2.grid(row=currentRow, column=2, sticky=W+E, pady=(y_spacing, y_spacing))
 
         # DKAN Url
         currentRow += 1
@@ -358,6 +373,7 @@ class MainGui(Frame):
 
 
     def action_help(self):
+        compileDocs()
         launchExternal('docs/index.html')
 
     def action_check_excel(self):

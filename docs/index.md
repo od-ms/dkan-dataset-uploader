@@ -3,6 +3,7 @@
 Mit *DKAN-Uploader* können Sie die Metadaten in einer Instanz der Open-Data-Portal-Software "DKAN" (https://getdkan.org/) verwalten.
 
 Programmfunktionen:
+
 * Alle Metadaten der Datensätze und Ressourcen aus den DKAN-Open-Data-Portal in eine Excel-Datei exportieren
 * Die (externen) Links aller Ressourcen überprüfen
 * Die Metadaten verschiedener Datensätze gleichzeitig bearbeiten indem Sie diese aus einer lokalen Excel-Datei überschreiben
@@ -19,25 +20,25 @@ Es handelt sich um eine in der Programmiersprache Python entwickelte Anwendung. 
 Führen Sie zum Starten der grafischen Bedienoberfläche folgende Befehle aus:
 
 ```
-git clone https://github.com/od-ms/dkan-dataset-uploader.git
-cd dkan-dataset-uploader
-pip3 install -r requirements.txt
-python3 -m dkan-uploader
+  git clone https://github.com/od-ms/dkan-dataset-uploader.git
+  cd dkan-dataset-uploader
+  pip3 install -r requirements.txt
+  python3 -m dkan-uploader
 ```
 
 ## Aufbau der grafischen Benutzeroberfläche
 
 Die grafische Benutzeroberfläche ist folgendermaßen aufgebaut:
 
-**Fenster für Logmeldungen**\
+**Fenster für Logmeldungen**<br />
 Auf der rechten Seite des Anwendungsfensters sehen sie ein großes Textfeld, in dem Logmeldungen angezeigt werden. Während der Bedienung der Anwendung erscheinen darin Informationen zu den letzten ausgeführten Aktionen und zu eventuell aufgetretenen Fehlern.
 
-**Aktionsflächen**\
+**Aktionsflächen**<br />
 Auf der linken Seite des Anwendungsfensters befinden sich Input-Felder für verschiedene Konfigurationseinstellungen, sowie Radioboxen und Buttons zum Ausführen der Programmfunktionen.
 
 ## Bedienung der Benutzeroberfläche
 
-**Vor dem ersten Start**\
+**Vor dem ersten Start**<br />
 Tragen Sie die URL des DKAN-Portals sowie Benutzernamen und Passwort in die entsprechenden Felder ein auf der linken Seite des Anwendungsfensters ein.
 
 Diese Konfiguration wird beim Aufruf einer Aktion automatisch in einer Datei *config.ini* im Anwendungsverzeichnis gespeichert und steht beim nächsten Start der Anwendung wieder zur Verfügung.
@@ -54,6 +55,7 @@ Diese Konfiguration wird beim Aufruf einer Aktion automatisch in einer Datei *co
 Um alle Daten aus dem DKAN in eine Excel-Datei zu exportieren, klicken Sie auf den Button **"DKAN->Excel"**.
 
 Außerdem können Sie folgende Optionen einstellen:
+
  * Checkbox *"Nur Datensätze, keine Ressourcen"*: Wenn diese Checkbox ausgewählt ist, werden nur die Metainformationen der Datensätze, nicht aber die Informationen zu den zugehörigen Ressourcen ausgelesen
  * Checkbox *"Ressourcen beim Download überprüfen"*: Wenn dies angehakt ist, werden alle externen Ressourcen-Urls ihres Open-Data-Portals geprüft, und das Ergebnis wird in der Excel-Datei vermerkt. Somit können Sie sehen, ob die Links auf externe Ressourcen-Dateien noch funktionieren. Ihr Computer wird dann versuchen, jede Ressourcen-URL per HTTP-HEAD-Request abzurufen, um festzustellen, ob der Link noch funktioniert. Der Abruf der Daten dauert dadurch deutlich länger.
 
@@ -75,7 +77,7 @@ Die erzeugte Excel-Datei hat den folgenden Aufbau:
 
 💣Achtung! Mit dieser Funktion werden Daten in der DKAN-Instanz überschrieben. Sie können alle Metadaten in Ihrem Open-Data-Portal verändern und bei falscher Bedienung alle Datensätze überschreiben.💣
 
-**Start**\
+**Start**<br />
 Klicken Sie dazu auf den Button **"Excel->DKAN"**.
 
 Dann werden alle Einträge aus der Excel-Datei Zeile für Zeile abgearbeitet und in das DKAN-Portal übertragen.
@@ -98,20 +100,20 @@ Die Bedienungsanleitung für den Kommandozeilenmodus und die unterschiedlichen v
 
 ## Liste der Fehlermeldungen
 
-* ```Fehler 5001```: *Die DKAN-API hat nicht im JSON-Format geantwortet.*\
+* ```Fehler 5001```: *Die DKAN-API hat nicht im JSON-Format geantwortet.*<br />
   Häufig hat das einen der folgenden Gründe:
-  * Ein Eingabeparameter für die DKAN-API hat nicht das erwartete Format. \
+  * Ein Eingabeparameter für die DKAN-API hat nicht das erwartete Format. <br />
   *Lösung:* Wenn dies beim Upload auftritt, sind eventuell in der Excel-Datei nicht alle benötigten Spalten korrekt ausgefüllt. Füllen Sie alle Spalten aus.
-  * Das API-Format hat sich geändert. Tritt z.B. auf, wenn Sie eine zu dieser Software inkompatible DKAN-Version nutzen. \
+  * Das API-Format hat sich geändert. Tritt z.B. auf, wenn Sie eine zu dieser Software inkompatible DKAN-Version nutzen. <br />
   *Lösung:* Prüfen Sie die Versionsnummer der von Ihnen verwendete DKAN-Instanz und gleichen Sie diese mit der vom Programm unterstützten Version ab. Wenn die Versionen inkompatibel sind, lassen Sie diese Software auf die neuere DKAN-Version anpassen, oder passen Sie selbst den Programmcode an, der die API anspricht.
 
-* ```Fehler 5002```: *Die DKAN-API-Antwort hat ein unerwartetes JSON-Format.*\
+* ```Fehler 5002```: *Die DKAN-API-Antwort hat ein unerwartetes JSON-Format.* <br />
   Im DKAN-Updater-Quellcode sind JSON-Schemas hinterlegt, die die erwartete Antwort-Struktur der DKAN-API enthalten. Weicht die DKAN-API-Antwort davon ab, dann liegt das vermutlich daran, dass die von Ihnen verwendete DKAN-Version nicht kompatibel ist zu dieser Version des DKAN-Updater.
 
-* ```Fehler 5003```: *Die DKAN Instanz ist nicht kompatibel zu DKAN-Uploader*\
+* ```Fehler 5003```: *Die DKAN Instanz ist nicht kompatibel zu DKAN-Uploader* <br />
   Bei der Überprüfung der DKAN-API-Datenformate wurde festgestellt, dass die von Ihnen genutzte DKAN-Instanz nicht kompatibel ist. *Lösung:* Kontaktieren Sie eine Person Ihres Vertrauens mit Python-Softwareentwicklungsexpertise, und bitten Sie diese Person, den Open-Source-Quellcode dieser Anwendung anzupassen.
 
-* ```Fehler 5005```: *Datensatz konnte nicht 1:1 angelegt werden*\
+* ```Fehler 5005```: *Datensatz konnte nicht 1:1 angelegt werden* <br />
   Dieser Fehler kann auftreten beim Anlegen eines Test-Datensatzes im DKAN. Dabei wurde dann festgestellt, dass beim Auslesen des gerade erst angelegten Test-Datensatzes einige Feldwerte nicht mit den geschriebenen Werten übereinstimmen. Das muss nicht unbedingt ein Problem sein. Wenn Sie diese Fehlermeldung erhalten, dann sollte im selben Fenster für die Logmeldungen oberhalb der Fehlermeldung eine Zusammenfassung angezeigt werden, welche Felder nicht exakt übereinstimmen. Sie können anhand dieser Logmeldungen übereprüfen, ob der Fehler als problematisch zu bewerten ist. Das passiert z.B. wenn die DKAN Konfiguration geändert wurde, und die Lizenz-Namen nicht mehr übereinstimmen.
 
 * ```Fehler 6000```: In der Excel-Datei wurde eine Spalte nicht gefunden. Das kann z.B. passieren, wenn eine von DKAN benötigte Spalte fehlt, oder einen falschen Titel in der ersten Zeile hat. Prüfen Sie die Titelzeilen der Spalten, möglicherweise ist dort ein Tippfehler. Oder die wichtige Spalte fehlt. Falls Sie das Problem nicht in ihrer Excel-Datei finden, können Sie am besten den DKAN Inhalt in eine andere Excel-Datei downloaden, indem Sie im Feld "Excel-Dateiname" einen neuen, noch nicht verwendeten Dateinamen eingeben und indem Sie dann den Button "DKAN->Excel" anklicken. Es wird eine neue Excel-Datei erstellt, und in dieser Datei können Sie dann in der ersten Zeile sehen, welche Spalten benötigt werden. Vergleichen Sie das mit der Datei die Sie versuchen einzulesen und passen Sie in ihrer Datei die erste Zeile entsprechend an.
@@ -119,6 +121,7 @@ Die Bedienungsanleitung für den Kommandozeilenmodus und die unterschiedlichen v
 ## Nicht unterstützte Datenfelder
 
  Folgende Felder von DKAN-Datensätzen werden nicht vom DKAN-Uploader unterstützt, d.h. sie können nicht ausgelesen oder geschrieben werden:
+
  * Harvest Source
  * Alle "Playground"-Felder
 
