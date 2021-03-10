@@ -1,5 +1,6 @@
 import os
 import sys
+import traceback
 import subprocess
 import logging
 import threading
@@ -61,7 +62,7 @@ def compileDocs():
         html = '<html><head><style type="text/css">\
             body {background-color:white;font-family:Verdana, Geneva, Tahoma, sans-serif;margin: 0 auto;\
             max-width: 60em;padding: 40px;margin: 2em auto 9em;background: #fff;color: #333; position: relative;box-shadow: 0 0.3em 1em #000;}\
-            p {text-align: justify;}\
+            p {text-align: justify;} img {width:100%}\
             html {background-color:lightsteelblue}\
             code {font-weight: bold;padding: 0 5px;background-color: #eee;border-radius: 4px;white-space: pre-line;}\
             </style></head><body>' + html
@@ -159,7 +160,7 @@ class MainGui(Frame):
 
         # Config headline
         currentRow += 1
-        config_label = Label(master, text=_("Konfiguration"), font=headline_font)
+        config_label = Label(master, text=_("Exceldatei-Konfiguration"), font=headline_font)
         config_label.grid(row=currentRow, column=1, columnspan=2, sticky=W, pady=(10, 0))
 
         # Filename inputs
@@ -185,6 +186,11 @@ class MainGui(Frame):
         bb.grid(row=currentRow, column=1, sticky=W+E, pady=(y_spacing, y_spacing))
         bb2 = Button(master, text=_("Excel-Datei öffnen"), command=self.action_open)
         bb2.grid(row=currentRow, column=2, sticky=W+E, pady=(y_spacing, y_spacing))
+
+        # Config headline
+        currentRow += 1
+        dkan_label = Label(master, text=_("DKAN Konfiguration"), font=headline_font)
+        dkan_label.grid(row=currentRow, column=1, columnspan=2, sticky=W, pady=(10, y_spacing))
 
         # DKAN Url
         currentRow += 1
@@ -213,15 +219,15 @@ class MainGui(Frame):
         # Test & Status button
         currentRow += 1
         self.status_button = Button(master, text=_("Verbindungstest & Status"), command=self.action_status)
-        self.status_button.grid(row=currentRow, column=1, sticky=W+E, pady=(y_spacing, 0))
+        self.status_button.grid(row=currentRow, column=1, sticky=W+E, pady=(y_spacing, 10))
         self.test_button = Button(master, text=_("DKAN API Schreibtest"), command=self.action_test)
-        self.test_button.grid(row=currentRow, column=2, sticky=W+E, pady=(y_spacing, 0))
+        self.test_button.grid(row=currentRow, column=2, sticky=W+E, pady=(y_spacing, 10))
 
         ## -- Dataset settings section --
+        #        currentRow += 1
+        #        ttk.Separator(master, orient=HORIZONTAL).grid(column=0, row=currentRow, columnspan=3, sticky='we', pady=(20, 0))
         currentRow += 1
-        ttk.Separator(master, orient=HORIZONTAL).grid(column=0, row=currentRow, columnspan=3, sticky='we', pady=(20, 0))
-        currentRow += 1
-        aktion_label = Label(master, text=_("Einstellungen"), font=headline_font)
+        aktion_label = Label(master, text=_("Aktions-Einstellungen"), font=headline_font)
         aktion_label.grid(row=currentRow, column=1, columnspan=2, sticky=W, pady=(10, 0))
 
         # Input field for Dataset Query/Limit
@@ -248,7 +254,7 @@ class MainGui(Frame):
         currentRow += 1
         ttk.Separator(master, orient=HORIZONTAL).grid(column=0, row=currentRow, columnspan=3, sticky='we', pady=(20, 0))
         currentRow += 1
-        aktion_label = Label(master, text=_("Lese Daten aus DKAN"), font=headline_font)
+        aktion_label = Label(master, text=_("Aktion: Lese Daten aus DKAN"), font=headline_font)
         aktion_label.grid(row=currentRow, column=1, columnspan=2, sticky=W, pady=(10, 0))
 
         currentRow +=1
@@ -276,7 +282,7 @@ class MainGui(Frame):
         currentRow += 1
         ttk.Separator(master, orient=HORIZONTAL).grid(column=0, row=currentRow, columnspan=3, sticky='we', pady=(20, 0))
         currentRow += 1
-        aktion_label = Label(master, text=_("Schreibe Daten zum DKAN"), font=headline_font)
+        aktion_label = Label(master, text=_("Aktion: Schreibe Daten zum DKAN"), font=headline_font)
         aktion_label.grid(row=currentRow, column=1, columnspan=2, sticky=W, pady=(10, 0))
 
         currentRow += 1
@@ -461,10 +467,18 @@ class MainGui(Frame):
             self.update_config()
             self.show_progressbar(_('DKAN schreiben'))
             self.clear_temp_dir()
+
             try:
                 excelreader.read(False)
             except AbortProgramError as err:
                 logging.error(err.message)
+            except Exception as error:
+                logging.exception(error)
+            except:
+                err = sys.exc_info()
+                logging.error("Unbekannter Fehler: %s", err)
+                logging.error("Fehlermeldung: %s", str(err[0]) + " " + str(err[1]))
+                logging.error("%s", traceback.format_tb(err[2]))
 
             self.clear_temp_dir()
             self.cleanup_progressbar()
