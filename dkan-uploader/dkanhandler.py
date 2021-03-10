@@ -1,10 +1,8 @@
 """Module to handle DKAN API calls"""
 import re
-import os
 from typing import List
 import json
 import logging
-import requests
 from dkan.client import DatasetAPI, LoginError
 from .constants import Dataset, Resource, ResourceType, AbortProgramError
 from . import dkanhelpers
@@ -75,8 +73,6 @@ def getDkanData(dataset: Dataset):
 
     if dataset.getValue(Dataset.FREQUENCY):
         dkanData["field_frequency"] = {"und": [{"value": dataset.getValue(Dataset.FREQUENCY)}]}
-    # TEMPORAL ...
-
     if dataset.getValue(Dataset.GRANULARITY):
         dkanData["field_granularity"] = {"und": [{"value": dataset.getValue(Dataset.GRANULARITY)}]}
     if dataset.getValue(Dataset.DATA_DICT_TYPE):
@@ -139,6 +135,8 @@ def getDkanData(dataset: Dataset):
         # find tags ids on this page: https://opendata.stadt-.de/admin/structure/taxonomy/tags
 
     if dataset.getRawValue(Dataset.TEMPORAL_START):
+
+
         dkanData["field_temporal_coverage"] = {
             "und": [{
                 "value": dataset.getRawValue(Dataset.TEMPORAL_START)
@@ -284,7 +282,7 @@ def getResourceDkanData(resource, nid, title):
         "title": rTitle,
         "body": {"und": [{
             "value": resource.getValue(Resource.DESCRIPTION),
-            "format": "plain_text"
+            "format": resource.getValue(Resource.DESCRIPTION_FORMAT) if resource.getValue(Resource.DESCRIPTION_FORMAT) else 'plain_text'
         }]},
         "field_format": {"und": [{"tid": formatId}]},
         "field_link_remote_file": {"und": [{
@@ -398,17 +396,8 @@ def updateResources(newResources:List[Resource], existingResources, dataset, for
         # Don't use existingResource, use resourceData instead!
 
         resourceData = getDatasetDetails(existingResource['target_id'])
-        if ("und" in resourceData['field_link_api']) and (resourceData['field_link_api']['und'][0]['url']):
-            uniqueId = resourceData['field_link_api']['und'][0]['url']
-        elif ('und' in resourceData['field_link_remote_file']) and (resourceData['field_link_remote_file']['und'][0]['uri']):
-            uniqueId = resourceData['field_link_remote_file']['und'][0]['uri']
-        elif ('und' in resourceData['field_upload']) and (resourceData['field_upload']['und'][0]['filename']):
-            uniqueId = resourceData['field_upload']['und'][0]['filename']
-        else:
-            logging.debug(_("'-> [keine URL] Resourcen ohne URLS werden nicht unterstützt. Lösche Resource."))
-            uniqueId = resourceData['nid']
 
-        logging.debug("%s IN %s", uniqueId, [x.getUniqueId() for x in newResources])
+        logging.debug("%s", [x.getUniqueId() for x in newResources])
 
         # check if the existing resource url also is in the new resource urls
         el = [x for x in newResources if x.equals_existing_resource(resourceData)]

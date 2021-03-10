@@ -89,7 +89,7 @@ class ExcelResultFile:
 
         except FileNotFoundError:
             logging.info(_("Excel-Datei existiert noch nicht und wird erstellt."))
-            self.column_mapping = list(self.get_column_config_dataset().keys()) + list(self.get_column_config_resource().keys())
+            self.column_mapping = self.get_column_config()
             self.initialize_new_excel_file(False)
 
         for row in old_excel_content:
@@ -187,7 +187,6 @@ class ExcelResultFile:
             else:
                 raise Exception("get_nested_json_value() not implemented for {} keys in: {}".format(len(keys), keys))
 
-            #logging.debug(_(" [x] %s => %s"), keys[0], node_value)
 
         except (TypeError, KeyError, IndexError):
             if not (len(keys)>2 and isinstance(keys[2], int) and keys[2]>0):
@@ -330,7 +329,7 @@ class ExcelResultFile:
                         try:
                             rc_value = resource[rc_key]
                         except KeyError:
-                            logging.error(_('Key "%s" nicht gefunden: %s'), rc_key, resource)
+                            logging.error(_('Resource Key "%s" nicht gefunden: %s'), rc_key, resource)
 
                     resource_row[column_name] = rc_value
 
@@ -354,7 +353,7 @@ class ExcelResultFile:
                             try:
                                 rc_value = resource_node[rc_key]
                             except KeyError:
-                                logging.error(_('Key "%s" nicht gefunden: %s'), rc_key, resource)
+                                logging.error(_('Detailled Key "%s" nicht gefunden: %s'), rc_key, resource)
 
                         resource_row[column_name] = rc_value
 
@@ -521,7 +520,7 @@ class Dkan2Excel:
 
             limit = 100000
             dataset_query = config.dataset_ids
-            match = re.search(r'limit\s*=\s*(\d+)\s*',dataset_query,flags = re.S|re.M)
+            match = re.search(r'[-\w]*limit\s*=\s*(\d+)[\w,]*',dataset_query,flags = re.S|re.M)
             if match:
                 limit = int(match.group(1))
                 logging.info(_("Beschränkung per 'Limit'-Query auf %s Datensätze."), limit)
