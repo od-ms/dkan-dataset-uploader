@@ -1,4 +1,5 @@
 
+import re
 import json
 import logging
 import requests
@@ -12,7 +13,16 @@ class DatasetUploader:
     """ Handle creation of Excel content """
 
     _ignore_resources = False
+    limit = 100000
+    dataset_count = 0
 
+    def __init__(self):
+        self.dataset_count = 0
+        dataset_query = config.dataset_ids
+        match = re.search(r'limit\s*=\s*(\d+)\s*',dataset_query,flags = re.S|re.M)
+        if match:
+            self.limit = int(match.group(1))
+            logging.info(_("Beschränkung per 'Limit'-Query auf %s Datensätze."), self.limit)
 
     def setIngoreResources(self, val):
         self._ignore_resources=val
@@ -31,6 +41,13 @@ class DatasetUploader:
 
         if not dataset:
             raise Exception(_("Fehler: Kein Datensatz zum Erstellen in datasetuploader.processDataset()"))
+
+        if self.limit:
+            logging.debug(_("Datensatz: %s/%s"), self.dataset_count, self.limit)
+
+        if self.dataset_count >= self.limit:
+            logging.info(_("Limit von %s erreicht."), self.limit)
+            return None
 
         logging.info(_("Bearbeite Datensatz: '%s'"), dataset)
         logging.debug(_("Resourcen: %s"), resources)
@@ -58,6 +75,7 @@ class DatasetUploader:
 
         else:
             # create new dataset
+            self.dataset_count += 1
             node_id = dkanhandler.create(dataset)
             logging.debug(_("NEUE Dataset-ID: %s"), node_id)
 
@@ -85,15 +103,20 @@ class DatasetUploader:
         package_id = dataset.getValue(Dataset.DATASET_ID)
         node_id = dataset.getValue(Dataset.NODE_ID)
 
-        if config.dataset_ids and (config.dataset_ids.find(package_id) == -1):
-            logging.warning(_("Wird übersprungen wegen Datensatz-Beschränkung: '%s' nicht in '%s'"), package_id, config.dataset_ids)
+        p = re.compile('[-\w]*limit\s*=\s*(\d+)[\w,]*')
+        dataset_query = p.sub('', config.dataset_ids)
+
+        if dataset_query and (dataset_query.find(package_id) == -1):
+            logging.warning(_("Wird übersprungen wegen Datensatz-Beschränkung: '%s' nicht in '%s'"), package_id, dataset_query)
             return '-'
 
-        elif config.dataset_ids:
-            logging.info(_("Datensatz-Beschränkung passt: %s(%s) ist in '%s'"), package_id, node_id, config.dataset_ids)
+        elif dataset_query:
+            logging.info(_("Datensatz-Beschränkung passt: %s(%s) ist in '%s'"), package_id, node_id, dataset_query)
+            self.dataset_count += 1
             return dkanhandler.update(dataset)
 
         else:
+            self.dataset_count += 1
             return dkanhandler.update(dataset)
 
 
