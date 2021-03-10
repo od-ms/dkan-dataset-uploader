@@ -72,8 +72,8 @@ Die von Ihnen eingetragenen Werte werden beim Aufruf einer Aktion oder beim Been
 **Aktions-Einstellungen**<br />
 
 * *Datensatz-Beschränkung*: Wenn Sie nicht möchten, dass alle Datensätze des DKAN bearbeitet werden, sondern wenn Sie dies auf einzelne Datensätze einschränken möchten, dann nutzen Sie dafür das Feld "Datensatz-Beschränkung":
-  * Beschränkung auf einzelnen Datensatz per ID: Sie können IDs der Datensätze eintragen, die gelesen oder geschrieben werden sollen. Bei mehreren Datensätzen trennen Sie diese per Komma. Steht im Feld z.B.: `aca473a1-f20c-467a-b1ab-021bd93c4962, 2ca04273-af8d-4f47-a7c8-c455a4979354`, dann wird beim betätigen des Button "Excel -> DKAN" nur die Zeilen aus der Excel-Datei bearbeitet, die die angegebenen IDs in der ID-Spalte enthalten. Wird keine der IDs gefunden, dann wird keine Aktion ausgeführt.
-  * Beschränkung auf Anzahl Datensätze: Schreiben Sie in das Feld `limit=X`, wobei die X die Anzahl der zu lesenden oder schreibenden Datensätze ist. Wenn im Feld "Datensatz-Beschränkung" z.B. `limit=2` steht, dann werden nur 2 Datensätze aus dem DKAN oder aus ihrer Excel-Datei gelesen, und danach wird der Prozess beendet.
+    * Beschränkung auf einzelnen Datensatz per ID: Sie können IDs der Datensätze eintragen, die gelesen oder  geschrieben werden sollen. Bei mehreren Datensätzen trennen Sie diese per Komma. Steht im Feld z.B.: `aca473a1-f20c-467a-b1ab-021bd93c4962, 2ca04273-af8d-4f47-a7c8-c455a4979354`, dann wird beim Betätigen des Button "Excel -> DKAN" nur die Zeilen aus der Excel-Datei bearbeitet, die die angegebenen IDs in der ID-Spalte enthalten. Wird keine der IDs gefunden, dann wird keine Aktion ausgeführt.
+    * Beschränkung auf Anzahl Datensätze: Schreiben Sie in das Feld `limit=X`, wobei die X die Anzahl der zu lesenden oder schreibenden Datensätze ist. Wenn im Feld "Datensatz-Beschränkung" z.B. `limit=2` steht, dann werden nur 2 Datensätze aus dem DKAN oder aus ihrer Excel-Datei gelesen, und danach wird der Prozess beendet.
 * *Info-Level*: Wenn Sie mehr Informationen über den Ablauf des Programms erhalten möchten, dann können das Info-Level auf "Debug" stellen. Im Fenster für Logmeldungen werden dann in hellgrauer Schrift zusätzliche Statusmeldungen ausgegeben. Dies kann Ihnen z.B. auch bei der Fehlersuche helfen, falls DKAN-Uploader nicht wie erwartet funktioniert.
 
 ### Export von Datensatz- und Ressourcen-Informationen aus dem DKAN in eine Excel-Datei
@@ -120,6 +120,31 @@ Die erzeugte Excel-Datei hat den folgenden Aufbau:
  * Jede Zeile, in denen die hinteren Spalten ab "Resource-ID" ausgefüllt sind, entsprechen einer Ressource.
  * In einer Zeile kann auch beides enthalten sein, das ist meist in der ersten Zeile eines Datensatzes der Fall.
  * Es werden in der Excel-Datei automatisch Spalten-"Gruppen" erzeugt, so dass man unbenötigte Spalten ausblenden kann und die Übersichtlichkeit gewahrt bleibt. Um Spalten ein- und auszuklappen klicken Sie in Ihrem Office-Programm (z.B. Excel oder LibreOffice) auf das entsprechende Plus- bzw. Minus-Zeichen über der ersten Zeile. Beim schreiben aus einer Excel-Datei in ein DKAN-Portal werden immer alle Spalten geschrieben, egal ob sie im Excel eingeklappt sind oder nicht.
+
+## Informationen zu den Excel-Spalten
+
+Die Spalten der Excel-Datei entsprechen 1:1 den Metadaten-Feldern, die im DKAN für einen Datensatz bzw. für eine Ressource angelegt werden können. Da die Inhalte per DKAN-API übertragen werden, weichen einige Datenformate ab von den Daten, die in der DKAN-GUI eingetragen werden können.
+Weitere Informationen zu einzelnen Feld-Inhalten erhalten Sie in der folgenden Liste:
+
+ * Spalte **Geographical Coverage Area**:
+     * Die geographische Beschreibung des Ortes, den die Daten betreffen. Dies muss im Format WKT (Well Known Text) angegeben werden. Mehr Infos z.B. unter: [http://giswiki.org/wiki/Well_Known_Text](http://giswiki.org/wiki/Well_Known_Text) - Ein Beispiel wäre z.B. `POLYGON ((7.52906 51.89293, 7.52906 52.00762, 7.73506 52.00762, 7.73506 51.89293))`
+ * Spalte **Groups**:
+     * Dieses Feld entspricht dem Datenbereitsteller bzw. der "Gruppe". Beispiel: `“Stadtverwaltung`. Mehrere können mit Komma getrennt angegeben werden, z.B. `"Stadtwerke", "Stadtverwaltung"`.
+ * Spalte **Resource-Typ**, mögliche Werte:
+     * `url`: Externe Ressource, die per Url angegeben ist
+     * `uploaded`: Datei, die im DKAN hochgeladen ist
+     * `datastore`: Daten, die im DKAN Datastore liegen
+     * `remote_file`: Im Prinzip das gleiche wie `url`, nur mit etwas anderer Darstellung im DKAN. Dieser Typ wird nur aus dem DKAN gelesen falls der Modus `Detaillierte Ressourcendaten (langsamer)` gewählt wurde. Ansonsten steht bei diesen Ressourcen beim Auslesen der Wert `url`.
+ * Spalten **Temporal Coverage Start** und **Temporal Coverage End**:
+     * Die Zeitliche Dimension der Daten: Von wann bis wann gelten die Daten? Das Datum muss jeweils im Format YYYY-MM-DD geschrieben werden, z.B. `2021-02-01` für 01. Feb 2021.
+ * Spalte **Tags**:
+     * Hier können die Kategorien angeben werden. Diese müssen den in ihrem DKAN angelegten Kategorien entsprechen. Sie können die Liste ihrer Kategorien sehen, wenn Sie sich in Ihr DKAN einloggen und auf folgende Adresse wechseln: www.ihr-dkan.de/admin/structure/taxonomy/tags (Statt ihr-dkan-de setzen Sie die Adresse Ihres DKAN-Portals ein).<br />
+     Die Kategorien müssen in Anführungszeichen stehen. Mehrere können mit Komma getrennt werden. Ein Beispielwert wäre z.B. `“Transport und Verkehr”, "Infrastruktur, Bauen und Wohnen"`
+ * Spalten **Textformat**, **Beschreibung-Format**:
+     * Diese Spalten geben an, welches Text-Format die Felder "Description" (="Textformat") mit der Datensatzbeschreibung, bzw. "Beschreibung" (=Beschreibung-Format) mit der Ressourcenbeschreibung haben. <br />Mögliche Werte sind:
+     * `full_html` Das Feld Description bzw. Beschreibung enthält HTML
+     * `plain_text` Das Feld Description bzw. Beschreibung enthält Text
+     * `html` Das Feld Description bzw. Beschreibung enthält Markdown-Text
 
 
 <a name="kommandozeile"></a>
