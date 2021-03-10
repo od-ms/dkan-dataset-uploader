@@ -22,6 +22,7 @@ class Resource:
     NAME = 'Resource-Name'
     FORMAT = 'Format'
     DESCRIPTION = 'Beschreibung'
+    DESCRIPTION_FORMAT = 'Beschreibung-Format'
     URL = 'Resource-Url'
     TYP = 'Resource-Typ'
 
@@ -76,7 +77,7 @@ class Resource:
 
     def getUploadFilePath(self):
         filename = self.getValue(Resource.URL)
-        if re.search(r'(\b(https?|ftp):\/\/[-A-Z0-9+&@#\/%?=~_|!:,.;]*[-A-Z0-9+&@#\/%=~_|])', filename):
+        if re.search(r'(\b(https?|ftp):\/\/[-A-Z0-9+&@#\/%?=~_|!:,.;]*[-A-Z0-9+&@#\/%=~_|])', filename, re.IGNORECASE):
             return False
         file_path = os.path.join(config.download_dir, filename)
         if os.path.isfile(file_path) or os.path.islink(file_path):
@@ -84,7 +85,7 @@ class Resource:
             return file_path
         else:
             logging.error(_(" Achtung: URL sieht aus wie ein Dateiname, aber Datei existiert nicht:"))
-            logging.error(" %s => %s", filename, file_path)
+            logging.error(" '%s' => %s", filename, file_path)
             return False
 
 
@@ -119,6 +120,14 @@ class Resource:
         if not Resource.NAME in row:
             logging.warning(_(' Resource-Felder gefunden, aber Pflichtfeld fehlt: %s'), Resource.NAME)
             return None
+
+        # Validate text format field
+        if Resource.DESCRIPTION_FORMAT in row:
+            value = row[Resource.DESCRIPTION_FORMAT]
+            possible = ["html", "bbcode", "plain_text", "full_html"]
+            if not value in possible:
+                logging.error(_("Spalte '%s' hat unbekannten Wert '%s'. Ressource wird nicht korrekt angezeigt werden."), Resource.DESCRIPTION_FORMAT, value)
+                logging.error(_("Erlaubte Werte: %s "), possible)
 
         logging.info(_(" Resource-Felder: %s/%s ('%s')"), count_non_empty_dataset_fields, len(get_column_config_resource()), row[Resource.NAME])
         return Resource(row)
@@ -229,6 +238,26 @@ class Dataset:
             if not value in possible:
                 logging.error(_("Spalte '%s' hat unbekannten Wert '%s'. Datensatzbeschreibung wird nicht korrekt angezeigt werden."))
                 logging.error(_("Erlaubte Werte: %s "), Dataset.TEXT_FORMAT, value, possible)
+
+        # Validate temporal start
+        if Dataset.TEMPORAL_START in row:
+            value = row[Dataset.TEMPORAL_START]
+            match = re.search(r'^\d{4}-\d{2}-\d{2}',value)
+            if not match:
+                logging.warning("Spalte 'Temporal Coverage Start' hat falsches Format: '%s'", value)
+                logging.warning("Stellen Sie bitte sicher, dass das Datum mit YYYY-MM-DD angegeben ist,")
+                logging.warning("und dass in ihrem Tabellenkalkulationsprogramm das Format des Feldes auf 'Text' gestellt ist.")
+                row[Dataset.TEMPORAL_START] = ''
+
+        # Validate temporal end
+        if Dataset.TEMPORAL_END in row:
+            value = row[Dataset.TEMPORAL_END]
+            match = re.search(r'^\d{4}-\d{2}-\d{2}',value)
+            if not match:
+                logging.warning("Spalte 'Temporal Coverage End' hat falsches Format: '%s'", value)
+                logging.warning("Stellen Sie bitte sicher, dass das Datum mit YYYY-MM-DD angegeben ist,")
+                logging.warning("und dass in ihrem Tabellenkalkulationsprogramm das Format des Feldes auf 'Text' gestellt ist.")
+                row[Dataset.TEMPORAL_END] = ''
 
         # Validate spatial
         if Dataset.GEO_AREA in row:
@@ -437,6 +466,7 @@ def get_column_config_resource_detailed():
         'Kommentare-Status': ['comment'],   # 1 = Geschlossen, 2 = Öffnen
         'Veröffentlicht?': ['status'],      # 1 = Veröffentlicht,  0 = Nicht veröffentlicht
         'Startseite': ['promote'],          # 1 = "Auf der Startseite", 0 = sonst
+        'Beschreibung-Format': ["body", "und", 0, "format"],
         'Resource-Typ-Detail': 'RTYPE_DETAILED',
     }
     return detailed_columns
