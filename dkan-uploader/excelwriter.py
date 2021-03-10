@@ -744,7 +744,8 @@ def print_excel_status(command_line_excel_filename):
 
     dkan_dataset_fields = constants.get_column_config_dataset()
     dkan_resource_fields = constants.get_column_config_resource()
-    dkan_fields = {**dkan_dataset_fields, **dkan_resource_fields}
+    dkan_resource_detailed = constants.get_column_config_resource_detailed()
+    dkan_fields = {**dkan_dataset_fields, **dkan_resource_fields, **dkan_resource_detailed}
 
     logging.info(_(" Dateiname: %s"), excel_filename)
     logging.info(_(" Absoluter Pfad: %s"), os.path.abspath(excel_filename))
@@ -778,4 +779,7 @@ def print_excel_status(command_line_excel_filename):
 
     for field in dkan_fields:
         if not field in used_fields:
-            logging.warning(_(" > %s => DKAN Feld fehlt in Excel-Datei"), field)
+            if field in dkan_resource_detailed:
+                logging.info(_(" - %s => Optionales Feld ist nicht in Excel"), field)
+            else:
+                logging.warning(_(" > %s => DKAN Feld fehlt in Excel-Datei"), field)
