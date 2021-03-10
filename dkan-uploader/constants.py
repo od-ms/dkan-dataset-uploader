@@ -125,7 +125,7 @@ class Resource:
         if Resource.DESCRIPTION_FORMAT in row:
             value = row[Resource.DESCRIPTION_FORMAT]
             possible = ["html", "bbcode", "plain_text", "full_html"]
-            if not value in possible:
+            if value and (not value in possible):
                 logging.error(_("Spalte '%s' hat unbekannten Wert '%s'. Ressource wird nicht korrekt angezeigt werden."), Resource.DESCRIPTION_FORMAT, value)
                 logging.error(_("Erlaubte Werte: %s "), possible)
 
@@ -241,23 +241,25 @@ class Dataset:
 
         # Validate temporal start
         if Dataset.TEMPORAL_START in row:
-            value = row[Dataset.TEMPORAL_START]
-            match = re.search(r'^\d{4}-\d{2}-\d{2}',value)
-            if not match:
-                logging.warning("Spalte 'Temporal Coverage Start' hat falsches Format: '%s'", value)
-                logging.warning("Stellen Sie bitte sicher, dass das Datum mit YYYY-MM-DD angegeben ist,")
-                logging.warning("und dass in ihrem Tabellenkalkulationsprogramm das Format des Feldes auf 'Text' gestellt ist.")
-                row[Dataset.TEMPORAL_START] = ''
+            value = str(row[Dataset.TEMPORAL_START])
+            if value:
+                match = re.search(r'^\d{4}-\d{2}-\d{2}', value)
+                if not match:
+                    logging.warning("Spalte 'Temporal Coverage Start' hat falsches Format: '%s'", value)
+                    logging.warning("Stellen Sie bitte sicher, dass das Datum mit YYYY-MM-DD angegeben ist,")
+                    logging.warning("und dass in ihrem Tabellenkalkulationsprogramm das Format des Feldes auf 'Text' gestellt ist.")
+                    row[Dataset.TEMPORAL_START] = ''
 
         # Validate temporal end
         if Dataset.TEMPORAL_END in row:
-            value = row[Dataset.TEMPORAL_END]
-            match = re.search(r'^\d{4}-\d{2}-\d{2}',value)
-            if not match:
-                logging.warning("Spalte 'Temporal Coverage End' hat falsches Format: '%s'", value)
-                logging.warning("Stellen Sie bitte sicher, dass das Datum mit YYYY-MM-DD angegeben ist,")
-                logging.warning("und dass in ihrem Tabellenkalkulationsprogramm das Format des Feldes auf 'Text' gestellt ist.")
-                row[Dataset.TEMPORAL_END] = ''
+            value = str(row[Dataset.TEMPORAL_END])
+            if value:
+                match = re.search(r'^\d{4}-\d{2}-\d{2}', value)
+                if not match:
+                    logging.warning("Spalte 'Temporal Coverage End' hat falsches Format: '%s'", value)
+                    logging.warning("Stellen Sie bitte sicher, dass das Datum mit YYYY-MM-DD angegeben ist,")
+                    logging.warning("und dass in ihrem Tabellenkalkulationsprogramm das Format des Feldes auf 'Text' gestellt ist.")
+                    row[Dataset.TEMPORAL_END] = ''
 
         # Validate spatial
         if Dataset.GEO_AREA in row:

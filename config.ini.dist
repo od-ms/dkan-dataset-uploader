@@ -10,7 +10,7 @@ filename = dkan_resources.xlsx
 skip_resources = No
 check_resources = No
 detailed_resources = No
-
+resources_download = No
 
 [api]
 package_details = /api/3/action/package_show?id=

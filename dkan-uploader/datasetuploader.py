@@ -46,7 +46,7 @@ class DatasetUploader:
             logging.debug(_("Datensatz: %s/%s"), self.dataset_count, self.limit)
 
         if self.dataset_count >= self.limit:
-            logging.info(_("Limit von %s erreicht."), self.limit)
+            logging.info(_("Datensatz wird übersprungen. Limit von %s erreicht."), self.limit)
             return None
 
         logging.info(_("Bearbeite Datensatz: '%s'"), dataset)
