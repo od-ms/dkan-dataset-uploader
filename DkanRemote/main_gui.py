@@ -47,6 +47,13 @@ def launchExternal(program):
     return ret
 
 
+def getLocalPath(filename):
+        bundle_dir = Path(__file__).parent.parent
+        logging.debug("Bundle dir: %s", bundle_dir)
+        path_to_icon = os.path.abspath(os.path.join(bundle_dir, filename))
+        logging.debug("File path: %s", path_to_icon)
+        return path_to_icon
+
 def isWritable(directory):
     try:
         tmp_prefix = "delete_me"
@@ -64,7 +71,7 @@ def isWritable(directory):
         return False
 
 def compileDocs():
-    with open("docs/index.md", "r", encoding="utf-8") as input_file:
+    with open(getLocalPath("docs/index.md"), "r", encoding="utf-8") as input_file:
         text = input_file.read()
         html = markdown.markdown(text)
         html = '<html><head><style type="text/css">\
@@ -75,7 +82,7 @@ def compileDocs():
             code {font-weight: bold;padding: 0 5px;background-color: #eee;border-radius: 4px;white-space: pre-line;}\
             </style></head><body>' + html
 
-        with open("docs/index.html", "w", encoding="utf-8", errors="xmlcharrefreplace") as output_file:
+        with open(getLocalPath("docs/index.html"), "w", encoding="utf-8", errors="xmlcharrefreplace") as output_file:
             output_file.write(html)
 
 
@@ -126,9 +133,7 @@ class MainGui(Frame):
         top.columnconfigure( 1, weight=3 )
 
         # Find out image path (for files bundled with pyinstaller into .exe)
-        bundle_dir = Path(__file__).parent.parent
-        logging.debug("Bundle dir: %s", bundle_dir)
-        path_to_icon = os.path.abspath(os.path.join(bundle_dir, 'app-icon.gif'))
+        path_to_icon = getLocalPath('app-icon.gif')
 
         # Setting icon of master
         p1 = PhotoImage(file = path_to_icon)
@@ -393,7 +398,7 @@ class MainGui(Frame):
 
     def action_help(self):
         compileDocs()
-        launchExternal('docs/index.html')
+        launchExternal(getLocalPath('docs/index.html'))
 
     def action_check_excel(self):
         self.show_progressbar(_('Dateipfade prüfen'))
