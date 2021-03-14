@@ -5,6 +5,7 @@ import argparse
 import textwrap
 import logging
 import os.path
+import sys
 from datetime import datetime
 from . import config
 from . import main_gui
@@ -20,6 +21,18 @@ logging.getLogger("requests").setLevel(logging.WARNING)
 # Setup additional logger that reports everything into one file per program run -- at "debug"-level, no matter what loglevel was set in the gui
 log_now = datetime.now() # current date and time
 log_filename = log_now.strftime("%Y-%m-%d_%H%M%S.log")
+
+try:
+    if not os.path.exists(config.x_log_dir):
+        os.makedirs(config.x_log_dir)
+    if not os.path.exists(config.x_temp_dir):
+        os.makedirs(config.x_temp_dir)
+except:
+    err = sys.exc_info()
+    print("Fehler beim Erstellen des Log/Temp/Verzeichnisses:")
+    print(str(err[0]) + " " + str(err[1]))
+
+
 log_file = os.path.normpath(config.x_log_dir + log_filename)
 log_handler = logging.FileHandler(log_file, mode='a')
 log_formatter = logging.Formatter('%(asctime)s %(levelname)s\t%(message)s', datefmt='%I:%M:%S')
