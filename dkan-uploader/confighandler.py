@@ -64,6 +64,14 @@ def write_config_file():
     config_ini.read(CONFIG_FILENAME)
 
     config_old = {s:dict(config_ini.items(s)) for s in config_ini.sections()}
+    if not config_ini.has_section("dkan"):
+        config_ini.add_section("dkan")
+    if not config_ini.has_section("excel"):
+        config_ini.add_section("excel")
+    if not config_ini.has_section("features"):
+        config_ini.add_section("features")
+    if not config_ini.has_section("api"):
+        config_ini.add_section("api")
 
     config_ini.set('dkan', 'dkan_url', config.dkan_url)
     config_ini.set('dkan', 'username', config.dkan_username)

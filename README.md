@@ -26,7 +26,7 @@ Install required packages:
 
     pip3 install -r requirements.txt
 
-    ''' (If you get an error with installing pydkan, use the install instructions from here: https://github.com/GetDKAN/pydkan) '''
+    ''' (If you get an error with installing pydkan, e.g. the following error "ModuleNotFoundError: No module named dkan", then use the install instructions from here: https://github.com/GetDKAN/pydkan) '''
 ```
 
 ## Configuration

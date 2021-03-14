@@ -64,7 +64,8 @@ def getDkanData(dataset: Dataset):
         for group_name, group_id in group_ids:
             group_data = dkanhelpers.HttpHelper.read_dkan_node(group_id)
             if not (("type" in group_data) and (group_data['type'] == "group")):
-                logging.error("Datensatz kann nicht angelegt werden, weil die Gruppe nicht gefunden wurde: %s ('%s')", group_id, group_name)
+                logging.error(_("Datensatz kann nicht angelegt werden, weil die Gruppe nicht gefunden wurde: %s ('%s')"), group_id, group_name)
+                logging.warning(_("Bitte legen Sie die Gruppe '%s' in ihrem DKAN an."),  group_name)
                 raise RuntimeError("Unknown group " + group_id + " " + group_name)
             if group_data['title'] != group_name:
                 logging.warning("Gruppenname %s weicht ab: '%s' != '%s'", group_id, group_name, group_data["title"])

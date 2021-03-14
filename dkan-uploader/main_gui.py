@@ -30,12 +30,19 @@ def launchExternal(program):
     However, note that in some cases the command may succeed without
     actually launching the targeted program."""
 
-    if sys.platform == 'darwin':
-        ret = subprocess.call(['open', program])
-    elif sys.platform.startswith('win'):
-        ret = os.startfile(os.path.normpath(program))
-    else:
-        ret = subprocess.call(['xdg-open', program])
+    ret = ''
+    try:
+        if sys.platform == 'darwin':
+            ret = subprocess.call(['open', program])
+        elif sys.platform.startswith('win'):
+            ret = os.startfile(os.path.normpath(program))
+        else:
+            ret = subprocess.call(['xdg-open', program])
+    except:
+        err = sys.exc_info()
+        logging.error(_("Fehlermeldung: %s"), str(err[0]))
+        logging.error(str(err[1]))
+
     return ret
 
 
@@ -396,7 +403,7 @@ class MainGui(Frame):
         if os.path.isdir(check_dir):
             logging.info(_("Verzeichnis existiert."))
         else:
-            logging.warning(_("Verzeichnis existiert nicht. Uploads können nicht durchgeführt werden."))
+            logging.warning(_("Verzeichnis existiert nicht. Ressourcen-Up- und -Downloads können nicht durchgeführt werden."))
             logging.error("Bitte legen Sie das Up-/Download Verzeichnis an und stellen Sie sicher, dass es beschreibbar ist.")
 
         if isWritable(check_dir):
