@@ -66,7 +66,8 @@ Or do it like this:
  pip install pyinstaller
  # ^ Carefully read the console message of the install command. 
  # It will output a path that you need to use in the following command: 
-C:\Users\User\AppData\Roaming\Python\Python38\Scripts\pyinstaller.exe --onefile --debug=all --clean --add-data="app-icon.gif;." .\dkanuploader.py
+ C:\Users\User\AppData\Roaming\Python\Python38\Scripts\pyinstaller.exe --onefile --clean --add-data="app-icon.gif;." --add-data="docs\index.md;docs" --add-data="docs\dkan-screenshot.png;docs" .\dkanuploader.py
+ # to debug, add: --debug=all
  
 ```
 
