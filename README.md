@@ -57,6 +57,18 @@ DKAN's dataset API frequently changes. Unexpected responses are a common problem
 4. remove fields from json POST BODY content one by one until response is OK
 5. Now you identified the json content that produced the error. Fix it by trial and error
 
+## Compile as exe file
+
+ * Nice instructions here: https://www.datasciencelearner.com/how-to-compile-python-to-exe/
+ 
+Or do it like this: 
+```
+ pip install pyinstaller
+ # ^ Carefully read the console message of the install command. 
+ # It will output a path that you need to use in the following command: 
+C:\Users\User\AppData\Roaming\Python\Python38\Scripts\pyinstaller.exe --onefile --debug=all --clean --add-data="app-icon.gif;." .\dkanuploader.py
+ 
+```
 
 ## Python learning resources
 

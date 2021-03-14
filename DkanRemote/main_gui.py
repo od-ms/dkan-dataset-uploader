@@ -17,6 +17,7 @@ from . import confighandler
 from . import dkanhandler
 from . import dkan_api_test
 from .constants import AbortProgramError
+from pathlib import Path
 
 def launchExternal(program):
     """launch(program)
@@ -124,8 +125,13 @@ class MainGui(Frame):
         top.columnconfigure( 0, weight=1 )
         top.columnconfigure( 1, weight=3 )
 
-        # Setting icon of master window
-        p1 = PhotoImage(file = 'app-icon.gif')
+        # Find out image path (for files bundled with pyinstaller into .exe)
+        bundle_dir = Path(__file__).parent.parent
+        logging.debug("Bundle dir: %s", bundle_dir)
+        path_to_icon = os.path.abspath(os.path.join(bundle_dir, 'app-icon.gif'))
+
+        # Setting icon of master
+        p1 = PhotoImage(file = path_to_icon)
         window.iconphoto(False, p1)
 
         # Create left frame with 3 form columns
