@@ -7,14 +7,15 @@ Detailled program documentation (in german language) is provided in the folder `
 
 ```bash
     # Start client in interactive GUI window mode
-    python3 -m dkan-uploader
+    python3 -m DkanRemote
+    # Alternative way to run it: python dkanuploader.py
 
     # Start client in console mode and list all command line options
-    python3 -m dkan-uploader -h
+    python3 -m DkanRemote -h
 
     # Example: Download DKAN content into filename.xlsx
     # (Additionally you need to set DKAN access credentials in config.ini)
-    python3 -m dkan-uploader filename.xlsx --download
+    python3 -m DkanRemote filename.xlsx --download
 ```
 
 ## Setup
