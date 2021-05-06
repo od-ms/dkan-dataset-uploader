@@ -1,7 +1,7 @@
-# dkan-dataset-uploader
+# DKAN Dataset Uploader
 A tool to upload or download multiple datasets and resources from or to a DKAN open data portal instance via excel sheets.
 
-Detailled program documentation (in german language) is provided in the folder ```docs```.
+Detailled program documentation (in german language) is provided in the folder [docs](docs/index.md).
 
 ## Usage
 
@@ -48,7 +48,7 @@ and add the following code in the method "requests" after the line "s = requests
 
 ## Debug
 
-DKAN's dataset API frequently changes. Unexpected responses are a common problem.
+DKAN's dataset API changes frequently. Unexpected responses are a common problem.
 
 1. Enable debug option of pydkan: Set last prameter of pydkan instantiation to true (see dkanhandler->function "connect")
 2. Check the log output for the last HTTP request that pydkan sent to DKAN API (probably a POST or PUT request)
