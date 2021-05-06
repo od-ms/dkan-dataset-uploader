@@ -5,6 +5,7 @@ password = 123456
 
 [excel]
 filename = dkan_resources.xlsx
+download_dir = downloads
 
 [features]
 skip_resources = No
@@ -14,4 +15,4 @@ resources_download = No
 
 [api]
 package_details = /api/3/action/package_show?id=
-resource_list = /api/3/action/current_package_list_with_resources?limit=10
+resource_list = /api/3/action/current_package_list_with_resources?limit=1000
