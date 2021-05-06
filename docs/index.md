@@ -23,19 +23,12 @@ Programmfunktionen:
 
 Es handelt sich um eine in der Programmiersprache Python entwickelte Anwendung. Diese kann über eine grafische Windows- oder Linux-Benutzeroberfläche bedient werden. Ebenso wird eine Ausführung über die Kommandozeile unterstützt.
 
+## Installation
 
-# Programmstart der grafischen Benutzeroberfläche
+Informationen zur Installation sowie weitere Hilfen erhalten Sie auf der Projekt-Homepage unter: https://github.com/od-ms/dkan-dataset-uploader
 
-**Unter Linux**
 
-Führen Sie zum Starten der grafischen Bedienoberfläche folgende Befehle aus:
-
-```
-  git clone https://github.com/od-ms/dkan-dataset-uploader.git
-  cd dkan-dataset-uploader
-  pip3 install -r requirements.txt
-  python3 -m dkan-uploader
-```
+# Grafische Benutzeroberfläche
 
 <a name="gui"></a>
 ## Aufbau der grafischen Benutzeroberfläche
@@ -188,11 +181,15 @@ Die folgende Liste kann Ihnen helfen, die Fehlermeldungen des Programms zu inter
 
 * ```Fehler 6000```: In der Excel-Datei wurde eine Spalte nicht gefunden. Das kann z.B. passieren, wenn eine von DKAN benötigte Spalte fehlt, oder einen falschen Titel in der ersten Zeile hat. Prüfen Sie die Titelzeilen der Spalten, möglicherweise ist dort ein Tippfehler. Oder die wichtige Spalte fehlt. Falls Sie das Problem nicht in ihrer Excel-Datei finden, können Sie am besten den DKAN Inhalt in eine andere Excel-Datei downloaden, indem Sie im Feld "Excel-Dateiname" einen neuen, noch nicht verwendeten Dateinamen eingeben und indem Sie dann den Button "DKAN->Excel" anklicken. Es wird eine neue Excel-Datei erstellt, und in dieser Datei können Sie dann in der ersten Zeile sehen, welche Spalten benötigt werden. Vergleichen Sie das mit der Datei die Sie versuchen einzulesen und passen Sie in ihrer Datei die erste Zeile entsprechend an.
 
+## Beteiligung & Melden von Problemen
+
+Wenn Sie sich an der Entwicklung beteiligen möchten, oder Probleme melden, besuchen Sie bitte die Projekt-Homepage unter: https://github.com/od-ms/dkan-dataset-uploader
+
 ## Nicht unterstützte Datenfelder
 
  Folgende Felder von DKAN-Datensätzen werden nicht vom DKAN-Uploader unterstützt, d.h. sie können nicht ausgelesen oder geschrieben werden:
 
- * `Lizenz` => Es werden seit neustem leider nur die Lizen-Kürzel übernommen
+ * `Lizenz` => Es werden seit neustem leider nur die Lizenz-Kürzel übernommen. Das soll mit der nächsten Version behoben werden.
  * Alle `Playground`-Felder => Besonderheit weniger DKAN-Instanzen
  * `Harvest Source` => Kann nicht geschrieben werden
 
@@ -202,3 +199,5 @@ Die folgende Liste kann Ihnen helfen, die Fehlermeldungen des Programms zu inter
 
 * **Fehlende API Endpunkte im DKAN**: Die DKAN-API bietet keine Endpunkte zum Abruf der "Stichworte" ("dataset_tags") oder "Dateitypen". Da zu diesen allerdings die IDs benötigt werden, werden sie über das HTML-Administrations-Interface von DKAN abgerufen und "gescraped". Dabei handelt es sich um die Urls `/admin/structure/taxonomy/dataset_tags` und `/admin/structure/taxonomy/format`. Solle es damit zu Problemen kommen, prüfen Sie bitte, ob Sie sich nach einloggen die o.g. Urls abrufen können.
 
+* **Windows-Exe wird als schädliche Datei erkannt**: Die ausführbare Windows-Datei wurde mit Python2Exe erstellt. Leider gibt es einige bekannte Probleme damit, u.A. dass Windows die heruntergeladene Exe-Datei für schädlich hält.
+Sie müssen daher nach dem Herunterladen und nach dem Doppelklicken auf die Datei in verschiedenen Windows-Dialogen bestätigen, dass Sie das Programm für sicher halten. Das müssen Sie zum Glück nur beim ersten Start tun.
