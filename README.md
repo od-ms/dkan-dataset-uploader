@@ -37,7 +37,7 @@ https://github.com/od-ms/dkan-dataset-uploader/releases
 
 **Hinweis:**\
 Die Datei wurde mit Pyinstaller erstellt. Leider gibt es einige bekannte Probleme damit, u.A. dass Windows die heruntergeladene Exe-Datei für schädlich hält.
-Sie müssen daher nach dem Herunterladen und nach dem Doppelklicken auf die Datei in verschiedenen Windows-Dialogen bestätigen, dass Sie das Programm für sicher halten. Das müssen Sie zum Glück nur beim ersten Start tun.
+Sie müssen daher nach dem Herunterladen Datei in verschiedenen Windows-Dialogen bestätigen, dass Sie das Programm für sicher halten. Das müssen Sie zum Glück nur beim ersten Start tun. Weitere Informationen finden Sie auf der Seite [windows-warnungen](docs/windows-warnungen.md)
 
 Falls Ihnen das zu risikoreich erscheint, können Sie statt der Binärdatei auch den Programm-Quellcode mit einem Python-Interpreter ausführen. Dazu benötigen Sie Python auf Ihrem System. Informationen zur Installation erhalten sie hier: https://docs.python.org/3/using/windows.html
 
@@ -57,7 +57,6 @@ Führen Sie die folgenden Befehle aus zum Herunterladen des Git-Repositories und
   python3 -m venv venv
 
   pip3 install -r requirements.txt
-
 
   # Hinweis: Falls ein Fehler beim Installieren von pydkan auftritt,
   # z.B. error "ModuleNotFoundError: No module named dkan", dann
