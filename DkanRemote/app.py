@@ -85,7 +85,7 @@ class DkanUploader:
 
         # Print usage instructions
         parser = argparse.ArgumentParser(
-            prog='dkan-uploader',
+            prog='DkanRemote',
             formatter_class=argparse.RawTextHelpFormatter,
             epilog=textwrap.dedent('''\
         DKAN remote control - instructions

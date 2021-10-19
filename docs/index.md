@@ -146,7 +146,7 @@ Weitere Informationen zu einzelnen Feld-Inhalten erhalten Sie in der folgenden L
 Mit folgendem Befehl können Sie die Software im Kommandozeilen-Modus starten:
 
 ```
-python3 -m dkan-uploader -h
+python3 -m DkanRemote -h
 ```
 
 Die Bedienungsanleitung für den Kommandozeilenmodus und die unterschiedlichen verfügbaren Kommandozeilenparameter werden dann über die Kommandozeile ausgegeben.

@@ -38,7 +38,7 @@ class DkanApiTest:
 
     def run(self):
         row = {}
-        with open(os.path.normpath('dkan-uploader/example_row.json')) as json_file:
+        with open(os.path.normpath('DkanRemote/example_row.json')) as json_file:
             row = json.load(json_file)
 
         node_id = self.create_dataset(row)
@@ -54,7 +54,7 @@ class DkanApiTest:
             Use this to debug the API instance. See instuctions in commentes below. '''
 
         row = {}
-        with open(os.path.normpath('dkan-uploader/example_row.json')) as json_file:
+        with open(os.path.normpath('DkanRemote/example_row.json')) as json_file:
             row = json.load(json_file)
 
         # IF the DKAN api refuses to create a dataset
@@ -62,7 +62,7 @@ class DkanApiTest:
         #
         # THEN use the following "search"-method to find the field(s) that produce the error:
         #   1.   uncomment keys in the following list, e.g. start with first 5 keys "license", "Data " etc
-        #   2.   run the script with "python3 -m dkan-uploader -wt"
+        #   2.   run the script with "python3 -m DkanRemote -wt"
         #   3.   A test dataset will be created without those uncommented fields
         #   4a.  if the creation of the dataset works, then one of the fields was the problem
         #   4b.  otherwise some other field might be the problem (or many fields)
@@ -117,7 +117,7 @@ class DkanApiTest:
     def validate_node(self, node_id):
         logging.info("Checking node %s", node_id)
         row = {}
-        with open(os.path.normpath('dkan-uploader/example_row.json')) as json_file:
+        with open(os.path.normpath('DkanRemote/example_row.json')) as json_file:
             row = json.load(json_file)
 
         error_fields = excelwriter.validate_single_dataset_row(row, node_id)
