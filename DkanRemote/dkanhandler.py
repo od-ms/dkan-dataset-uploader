@@ -87,19 +87,13 @@ def getDkanData(dataset: Dataset):
     if dataset.getValue(Dataset.DATA_STANDARD):
         dkanData["field_conforms_to"] = {"und": [{"url": dataset.getValue(Dataset.DATA_STANDARD)}]}
 
-    if dataset.getValue(Dataset.RELATED_CONTENT):
-        logging.debug("Converting data structure of 'related content' field:")
-        relatedcontent = dataset.getValue(Dataset.RELATED_CONTENT)
-        print(json.dumps(relatedcontent, indent=2))
-        related_list = []
-        for related_entry in relatedcontent:
-            related_list.append({
-                "title": related_entry[0],
-                "url": related_entry[1],
-                "attributes": []
-                })
-        dkanData["field_related_content"] = {"und": related_list}
-        print(json.dumps(dkanData["field_related_content"], indent=2))
+    for nextField in [Dataset.RELATED_CONTENT, Dataset.DD_CONTRIBUTOR, Dataset.DD_CREATOR, Dataset.DD_MAINTAINER, Dataset.DD_ORIGINATOR, Dataset.DD_PUBLISHER]:
+        logging.debug("next field %s", nextField)
+        if dataset.getValue(nextField):
+            logging.debug("Converting data structure of 'related content' field:")
+            relatedkey, relatedcontent = dataset.getTitleUrlAttributes(nextField)
+            dkanData[relatedkey] = {"und": relatedcontent}
+            print(json.dumps(dkanData[relatedkey], indent=2))
 
     # STATE = 'State'
     # DATE_CREATED = 'Created'

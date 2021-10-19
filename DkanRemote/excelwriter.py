@@ -257,8 +257,10 @@ class ExcelResultFile:
 
             elif column_key[:7] == "RELATED":
                 related_content = []
+                active_field = column_key[8:]
+                logging.debug("     RELATED: %s => %s", column_key, active_field)
                 for t_index in range(0,10):
-                    rel = self.get_nested_json_value(dkan_node, ["field_related_content", 'und', t_index])
+                    rel = self.get_nested_json_value(dkan_node, [active_field, 'und', t_index])
                     if rel:
                         related_content.append('"{}" ({})'.format(rel['title'].replace('"', "'"), rel['url']))
                     value = ", ".join(related_content)

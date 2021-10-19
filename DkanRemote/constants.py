@@ -196,7 +196,11 @@ class Dataset:
     STATE = 'State'
     DATE_CREATED = 'Created'
     DATE_MODIFIED = 'Modified'
-
+    DD_CONTRIBUTOR = 'DD Contributor'
+    DD_CREATOR = 'DD Creator'
+    DD_MAINTAINER = 'DD Maintainer'
+    DD_ORIGINATOR = 'DD Originator'
+    DD_PUBLISHER = 'DD Publisher'
     _row = {}
 
     def __init__(self, row):
@@ -307,6 +311,9 @@ class Dataset:
 
     def getValue(self, valueName, default=""):
 
+        known_columns = get_column_config_dataset()
+        column_key = known_columns[valueName]
+
         if (valueName == Dataset.TAGS) or (valueName == Dataset.KEYWORDS):
             tags = self.getRawValue(valueName)
             tags_in_dataset = re.findall(r'[“"]([^“"”]+)[”"]', tags)
@@ -353,7 +360,7 @@ class Dataset:
             value = re.findall(r'"([^"]*)"\s+\((\d+)\)', tags)
             logging.debug(_("Gefundene Gruppen: %s"), value)
 
-        elif valueName == Dataset.RELATED_CONTENT:
+        elif column_key[:7] == "RELATED":
             tags = self.getRawValue(valueName)
             value = re.findall(r'"([^"]*)"\s+\(([^"]*)\)', tags)
             logging.debug(_("Einträge '%s' gefunden: %s"), valueName, value)
@@ -363,7 +370,21 @@ class Dataset:
 
         return value if value else default
 
+    def getTitleUrlAttributes(self, valueName):
+        relatedcontent = self.getValue(valueName)
+        column_config = get_column_config_dataset()
+        field_name_raw = column_config[valueName]
+        field_name = field_name_raw[8:]
+        logging.debug(_("gTUA '%s' gefunden: %s"), valueName, field_name)
 
+        related_list = []
+        for related_entry in relatedcontent:
+            related_list.append({
+                "title": related_entry[0],
+                "url": related_entry[1],
+                "attributes": []
+                })
+        return field_name, related_list
 
     def __str__(self):
         return '{} ({})'.format(
@@ -439,11 +460,18 @@ def get_column_config_dataset():
         'Public Access Level': ["field_public_access_level", "und", 0, "value"],
         'Data Standard': ['field_conforms_to', "und", 0, "url"],
         'Language': ["field_language", 'und', 0, 'value'],
-        'Related Content': 'RELATED',
+        'Related Content': 'RELATED|field_related_content',
         # [x] Additional Info => wird anders eingebunden
         # [x] Resources => wird anders eingebunden
         # [x] Playground => Ein paar Felder, die anscheinend nur für Köln relevant sind
         # [x] Harvest Source => verwenden wir nicht, habe ich in der Doku erklärt
+
+        ##      Fields for dcat-ap.de      ##
+        'DD Contributor': 'RELATED|field_dcatapde_contributor',
+        'DD Creator': 'RELATED|field_dcatapde_creator',
+        'DD Maintainer': 'RELATED|field_dcatapde_maintainer',
+        'DD Originator': 'RELATED|field_dcatapde_originator',
+        'DD Publisher': 'RELATED|field_dcatapde_publisher',
 
         # Versionsinformationen ?
         # Einstellungen für Kommentare (Öffnen / Geschlossen)
@@ -628,7 +656,7 @@ nodeSchema = {
         "field_granularity": {"$ref": "#/definitions/dkan_structure_single_value"},
         "field_license": {"$ref": "#/definitions/dkan_structure_single_value"},
         "field_public_access_level": {"$ref": "#/definitions/dkan_structure_single_value"},
-        "field_related_content": {"$ref": "#/definitions/dkan_structure_related_content"},
+        "field_related_content": {"$ref": "#/definitions/dkan_structure_url_title_attributes"},
         "field_resources": {"$ref": "#/definitions/dkan_structure_target_ids"},
         "field_spatial": {"$ref": "#/definitions/dkan_structure_spatial"},
         "field_spatial_geographical_cover": {"$ref": "#/definitions/dkan_structure_single_value"},
@@ -641,6 +669,7 @@ nodeSchema = {
         "field_rights": {"type": "array"},
         "field_playground": {"$ref": "#/definitions/dkan_structure"},
         "field_dataset_tags": {"$ref": "#/definitions/dkan_structure_tids"},
+
         "path": {"type": "string"},
         "cid": {"type": ["number", "string"]},
         "last_comment_timestamp": {"type": "string"},
@@ -650,6 +679,32 @@ nodeSchema = {
         "name": {"type": "string"},
         "picture": {"type": "string"},
         "data": {"type": ["null", "string"]},
+
+        ###############################
+        ##   fields for dcat-ap-de   ##
+        ###############################
+        "field_dcatapde_contributor": {"$ref": "#/definitions/dkan_structure_url_title_attributes"},
+        "field_dcatapde_creator": {"$ref": "#/definitions/dkan_structure_url_title_attributes"},
+        # "field_dcatapde_geocode": {"$ref": "#/definitions/dkan_structure_target_ids"},
+        # "field_dcatapde_geodesc": [],
+        #"field_dcatapde_geolevel": {"$ref": "#/definitions/dkan_structure_target_ids"},
+        #"field_dcatapde_granularity": {"$ref": "#/definitions/dkan_structure_target_ids"},
+        #"field_dcatapde_language": {"$ref": "#/definitions/dkan_structure_target_ids"},
+        # "field_dcatapde_legalbase": [],
+        "field_dcatapde_maintainer": {"$ref": "#/definitions/dkan_structure_url_title_attributes"},
+        "field_dcatapde_originator": {"$ref": "#/definitions/dkan_structure_url_title_attributes"},
+        # "field_dcatapde_otherid": [],
+        # "field_dcatapde_provenance": [],
+        "field_dcatapde_publisher": {"$ref": "#/definitions/dkan_structure_url_title_attributes"},
+        # "field_dcatapde_qualityprocess": [],
+        # "field_dcatapde_relation": [],
+        # "field_dcatapde_sample": [],
+        # "field_dcatapde_source": [],
+        #"field_dcatapde_spatialgeonames": {"$ref": "#/definitions/dkan_structure_url_title_attributes"},
+        #"field_dcatapde_spatialplace": {"$ref": "#/definitions/dkan_structure_target_ids"},
+        # "field_dcatapde_temporal": [],
+        #"field_dcatapde_theme": {"$ref": "#/definitions/dkan_structure_target_ids"}
+
     },
     "required": [ "vid", "uid", "title", "status", "comment", "promote", "sticky",
         "vuuid", "nid", "type", "language", "created", "changed", "tnid", "translate",
@@ -741,7 +796,7 @@ nodeSchema = {
                 }
             ]
         },
-        "dkan_structure_related_content": {
+        "dkan_structure_url_title_attributes": {
             "anyOf": [
                 {   "type": "object",
                     "properties": {
