@@ -218,17 +218,8 @@ class ExcelResultFile:
         return constants.get_column_config_resource()
 
 
-    def get_dataset_tag_name(self, t_id):
-        ''' Helper function that returns a dataset_tag name for a ID, with data fetching & caching '''
-        if not self.dataset_tag_names:
-            self.dataset_tag_names = dkanhelpers.HttpHelper.get_all_dkan_tags()
-
-        if t_id in self.dataset_tag_names:
-            return self.dataset_tag_names[t_id]
-
-        return '?'
-
     def get_taxonomy_value(self, taxonomy_name, t_id):
+        ''' Helper function that returns a taxonomy value for an ID, with data fetching & caching '''
         if taxonomy_name not in self.taxonomy_cache:
             self.taxonomy_cache[taxonomy_name] = dkanhelpers.HttpHelper.get_taxonomy_values(taxonomy_name)
 
@@ -236,6 +227,7 @@ class ExcelResultFile:
             return self.taxonomy_cache[taxonomy_name][t_id]
 
         return '?'
+
 
     def convert_dkan_data_to_excel_row_hash(self, package_data, dkan_node, skip_resources):
         #logging.debug("package_data %s", package_data)
@@ -274,27 +266,6 @@ class ExcelResultFile:
                         s_title = rel['title'] if rel['title'] else ""
                         related_content.append('"{}" ({})'.format(s_title.replace('"', "'"), rel['url']))
                     value = ", ".join(related_content)
-
-            elif column_key[:10] == "CATEGORIES":
-                if 'tags' in package_data:
-                    c_index = 0
-                    categories = []
-                    # read category name from ckan_data and read category id from dkan_node, they are in same order
-                    for category in package_data['tags']:
-                        c_id = self.get_nested_json_value(dkan_node, ["field_tags", 'und', c_index, 'tid'])
-                        categories.append('"{}" ({})'.format(category['name'].replace('"', "'"), c_id))
-                        c_index += 1
-                    value = ", ".join(categories)
-
-            elif column_key[:4] == "TAGS":
-                # Because of weird DKAN api, we can only get the tag ID, but not the tag name ...
-                tags = []
-                for t_index in range(0,10):
-                    t_id = self.get_nested_json_value(dkan_node, ["field_dataset_tags", 'und', t_index, 'tid'])
-                    if t_id:
-                        t_name = self.get_dataset_tag_name(t_id)
-                        tags.append('"{}" ({})'.format(t_name, t_id))
-                    value = ", ".join(tags)
 
             elif column_key[:7] == "TID_REF":
                 s_dummy, s_node_field, s_taxonomy_name = column_key.split('|')

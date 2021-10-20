@@ -53,10 +53,6 @@ def getDkanData(dataset: Dataset):
     if dataset.getValue(Dataset.HOMEPAGE):
         dkanData["field_landing_page"] = {"und": [{"url": dataset.getValue(Dataset.HOMEPAGE)}]}
 
-    if dataset.getRawValue(Dataset.TAGS):
-        dkanData["field_tags"] ={"und": expand_into("tid", dataset.getValue(Dataset.TAGS))}
-
-
     if dataset.getRawValue(Dataset.GROUPS):
         # check if the desired groups are really in the system, otherwise dkan will throw error
         group_ids = dataset.getValue(Dataset.GROUPS)
@@ -97,14 +93,15 @@ def getDkanData(dataset: Dataset):
             dkanData[relatedkey] = {"und": relatedcontent}
             print(json.dumps(dkanData[relatedkey], indent=2))
 
+
+    for nextField in [Dataset.DD_GEOCODE, Dataset.DD_GEOLEVEL, Dataset.KEYWORDS, Dataset.TAGS]:
+        if dataset.getRawValue(nextField):
+            relatedkey, relatedcontent = dataset.getFieldNameAndTaxonomyValue(nextField)
+            dkanData[relatedkey] ={"und": expand_into("tid", relatedcontent)}
+
     # STATE = 'State'
     # DATE_CREATED = 'Created'
     # DATE_MODIFIED = 'Modified'
-
-
-    if dataset.getRawValue(Dataset.KEYWORDS):
-        tags_in_dataset = dataset.getValue(Dataset.KEYWORDS)
-        dkanData["field_dataset_tags"] ={"und": expand_into("tid", tags_in_dataset)}
 
         # "field_granularity": {"und": [{"value": "longitude/latitude"}]},
 

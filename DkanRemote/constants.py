@@ -317,7 +317,8 @@ class Dataset:
         known_columns = get_column_config_dataset()
         column_key = known_columns[valueName]
 
-        if (valueName == Dataset.TAGS) or (valueName == Dataset.KEYWORDS):
+        if (column_key[:7] == "TID_REF"):
+            s_node_field, s_taxonomy_name = column_key[8:].split('|')
             tags = self.getRawValue(valueName)
             tags_in_dataset = re.findall(r'[“"]([^“"”]+)[”"]', tags)
             ids_in_dataset = re.findall(r'\((\d+)\)', tags)
@@ -331,10 +332,7 @@ class Dataset:
                 has_error = True
                 logging.error(_('Problem bei "%s". Wert wurde nicht erkannt: %s'), valueName, tags)
 
-            if valueName == Dataset.KEYWORDS:
-                all_tags_in_dkan = dkanhelpers.HttpHelper.get_all_dkan_tags()
-            else:
-                all_tags_in_dkan = dkanhelpers.HttpHelper.get_all_dkan_categories()
+            all_tags_in_dkan = dkanhelpers.HttpHelper.get_taxonomy_values(s_taxonomy_name)
 
             # TODOs we completely ignore ids_in_dataset .. do we need that at all?
             has_error = False
@@ -356,7 +354,7 @@ class Dataset:
                 logging.error(_('b) Sie können nur %s verwenden, die im DKAN Administrationsbereich angelegt wurden.'), valueName)
                 logging.error(_('Mögliche Werte für "%s" sind:'), valueName)
                 logging.error(_('%s'), all_tags_in_dkan.values())
-            logging.debug("Gefundene tags: %s", value)
+            logging.debug("Gefunden -%s-: %s", s_node_field, value)
 
         elif valueName == Dataset.GROUPS:
             tags = self.getRawValue(valueName)
@@ -372,6 +370,16 @@ class Dataset:
             value = self.getRawValue(valueName)
 
         return value if value else default
+
+
+    def getFieldNameAndTaxonomyValue(self, valueName):
+        column_config = get_column_config_dataset()
+        field_name_raw = column_config[valueName]
+        if field_name_raw[:7] != "TID_REF":
+            logging.error(_('Feld Name hätte "TID_REF" sein müssen: %s'), field_name_raw)
+        s_dummy, field_name, taxonomy_name = field_name_raw.split('|')
+        return field_name, self.getValue(valueName)
+
 
     def getTitleUrlAttributes(self, valueName):
         relatedcontent = self.getValue(valueName)
@@ -441,7 +449,7 @@ def get_column_config_dataset():
         'Node-ID': ["nid"],
         'Titel': "title",
         'Groups': 'COLLECT|groups.title',
-        'Tags': 'CATEGORIES', # field_tags
+        'Tags': 'TID_REF|field_tags|tags',
         'Description': "notes",
         'Textformat': ["body", "und", 0, "format"],
         'Homepage URL': ['field_landing_page', 'und', 0, 'url'],
@@ -493,7 +501,7 @@ def get_column_config_dataset():
         'State': "state",
         'Created': "metadata_created",
         'Modified': "metadata_modified",
-        'Schlagworte': 'TAGS'  # field_dataset_tags
+        'Schlagworte': 'TID_REF|field_dataset_tags|dataset_tags'
     }
     return columns_config
 

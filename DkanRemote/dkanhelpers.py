@@ -19,8 +19,6 @@ class HttpHelper:
 
     file_formats = None
     taxonomy_cache = {}
-    dkan_tags = None
-    dkan_categories = None
 
     @staticmethod
     def read_dkan_node(node_id):
@@ -63,23 +61,11 @@ class HttpHelper:
 
 
     @staticmethod
-    def get_all_dkan_categories():
-        if not HttpHelper.dkan_categories:
-            HttpHelper.dkan_categories = HttpHelper.parse_admin_page_contents(dkanhandler.getApi(), '/admin/structure/taxonomy/tags')
-        return HttpHelper.dkan_categories
-
-
-    @staticmethod
-    def get_all_dkan_tags():
-        if not HttpHelper.dkan_tags:
-            HttpHelper.dkan_tags = HttpHelper.parse_admin_page_contents(dkanhandler.getApi(), '/admin/structure/taxonomy/dataset_tags')
-        return HttpHelper.dkan_tags
-
-    @staticmethod
     def get_taxonomy_values(taxonomy_name):
         if taxonomy_name not in HttpHelper.taxonomy_cache:
             HttpHelper.taxonomy_cache[taxonomy_name] = HttpHelper.parse_admin_page_contents(dkanhandler.getApi(), '/admin/structure/taxonomy/{}'.format(taxonomy_name))
         return HttpHelper.taxonomy_cache[taxonomy_name]
+
 
     @staticmethod
     def get_all_dkan_fileformats():
