@@ -168,14 +168,13 @@ class Dataset:
     DATASET_ID = 'Dataset-ID'
     NODE_ID = 'Node-ID'
     NAME = 'Dataset-Name'
-    TITLE = 'Titel'
+    TITLE = 'Title'
     AUTHOR = 'Author'
     CONTACT_NAME = 'Contact Name'
     CONTACT_EMAIL = 'Contact Email'
     GEO_LOCATION = 'Geographical Location'
     GEO_AREA = 'Geographical Coverage Area'
     LICENSE = 'License'
-    LICENSE_CUSTOM = 'Custom License'
     HOMEPAGE = 'Homepage URL'
     DESCRIPTION = 'Description'
     TEXT_FORMAT = 'Textformat'
@@ -196,6 +195,7 @@ class Dataset:
     STATE = 'State'
     DATE_CREATED = 'Created'
     DATE_MODIFIED = 'Modified'
+
     DD_CONTRIBUTOR = 'DD Contributor'
     DD_CREATOR = 'DD Creator'
     DD_MAINTAINER = 'DD Maintainer'
@@ -204,6 +204,20 @@ class Dataset:
     DD_GEONAMES = 'DD Geonames'
     DD_GEOCODE = 'DD Geocode'
     DD_GEOLEVEL = 'DD Geolevel'
+    DD_REL = 'DD Relation'
+    DD_SOURCE = 'DD Source'
+    DD_QUAL = 'DD Qualityprocess'
+    DD_GRANU = 'DD Granularity'
+    DD_LANG = 'DD Language'
+    DD_PLACE = 'DD Place'
+    DD_THEME = 'DD Thema'
+    DD_GEO_A ='DD Geo-Abdeckung'
+    DD_LEGAL = 'DD Rechtsgrundlage'
+    DD_OTHER = 'DD andere ID'
+    DD_PROV = 'DD Provenienz'
+    DD_TSTART = 'DD Temporal Start'
+    DD_TEND = 'DD Temporal End'
+
     _row = {}
 
     def __init__(self, row):
@@ -447,7 +461,7 @@ def get_column_config_dataset():
     columns_config = {
         'Dataset-ID': "id",
         'Node-ID': ["nid"],
-        'Titel': "title",
+        'Title': "title",
         'Groups': 'COLLECT|groups.title',
         'Tags': 'TID_REF|field_tags|tags',
         'Description': "notes",
@@ -460,8 +474,8 @@ def get_column_config_dataset():
         'Contact Email': "author_email",
         'Geographical Location': ['field_spatial_geographical_cover', 'und', 0, 'value'],
         'Geographical Coverage Area': ['field_spatial', 'und', 0, 'wkt'],
-        'License': "license_title",
-        'Custom License': ['field_license', 'und', 0, 'value'],
+        # 'License': "license_title", # was removed..?
+        'License': ['field_license', 'und', 0, 'value'],
         'Frequency': ['field_frequency', 'und', 0, 'value'], #example value: "R/P1Y" ?
         'Temporal Coverage Start': ['field_temporal_coverage', 'und', 0, 'value'],
         'Temporal Coverage End': ['field_temporal_coverage', 'und', 0, 'value2'],
@@ -484,10 +498,27 @@ def get_column_config_dataset():
         'DD Originator': 'RELATED|field_dcatapde_originator',
         'DD Publisher': 'RELATED|field_dcatapde_publisher',
         'DD Geonames': 'RELATED|field_dcatapde_spatialgeonames',
+        'DD Relation': 'RELATED|field_dcatapde_relation',
+        'DD Source': 'RELATED|field_dcatapde_source',
+        'DD Qualityprocess': 'RELATED|field_dcatapde_qualityprocess',
 
         ##      Format: "TID_REF|$node_json_field_name|$taxonomy_name"
         'DD Geocode': 'TID_REF|field_dcatapde_geocode|dcat_geocoding',
         'DD Geolevel': 'TID_REF|field_dcatapde_geolevel|dcat_geocoding_level',
+        'DD Granularity': 'TID_REF|field_dcatapde_granularity|dcat_frequency',
+        'DD Language': 'TID_REF|field_dcatapde_language|dcat_language',
+        'DD Place': 'TID_REF|field_dcatapde_spatialplace|dcat_place',
+        'DD Thema': 'TID_REF|field_dcatapde_theme|dcat_theme',
+
+        'DD Geo-Abdeckung': ['field_dcatapde_geodesc', 'und', 0, 'value'],
+        'DD Rechtsgrundlage': ['field_dcatapde_legalbase', 'und', 0, 'value'],
+
+        'DD andere ID': ['field_dcatapde_otherid', 'und', 0, 'value'], # TODO - HIER SIND MULTIPLE WERTE MÖGLICH!
+        'DD Provenienz': ['field_dcatapde_provenance', 'und', 0, 'value'], # TODO - HIER SIND MULTIPLE WERTE MÖGLICH!
+
+        'DD Temporal Start': ['field_dcatapde_temporal', 'und', 0, 'value'],
+        'DD Temporal End': ['field_dcatapde_temporal', 'und', 0, 'value2'],
+
 
         # Versionsinformationen ?
         # Einstellungen für Kommentare (Öffnen / Geschlossen)
@@ -702,24 +733,24 @@ nodeSchema = {
         "field_dcatapde_contributor": {"$ref": "#/definitions/dkan_structure_url_title_attributes"},
         "field_dcatapde_creator": {"$ref": "#/definitions/dkan_structure_url_title_attributes"},
         "field_dcatapde_geocode": {"$ref": "#/definitions/dkan_structure_tids"},
-        # "field_dcatapde_geodesc": [],
+        "field_dcatapde_geodesc": {"$ref": "#/definitions/dkan_structure_single_value"},
         "field_dcatapde_geolevel": {"$ref": "#/definitions/dkan_structure_tids"},
-        #"field_dcatapde_granularity": {"$ref": "#/definitions/dkan_structure_tids"},
-        #"field_dcatapde_language": {"$ref": "#/definitions/dkan_structure_tids"},
-        # "field_dcatapde_legalbase": [],
+        "field_dcatapde_granularity": {"$ref": "#/definitions/dkan_structure_tids"},
+        "field_dcatapde_language": {"$ref": "#/definitions/dkan_structure_tids"},
+        "field_dcatapde_legalbase": {"$ref": "#/definitions/dkan_structure_single_value"},
         "field_dcatapde_maintainer": {"$ref": "#/definitions/dkan_structure_url_title_attributes"},
         "field_dcatapde_originator": {"$ref": "#/definitions/dkan_structure_url_title_attributes"},
-        # "field_dcatapde_otherid": [],
-        # "field_dcatapde_provenance": [],
+        "field_dcatapde_otherid": {"$ref": "#/definitions/dkan_structure_multi_value"},
+        "field_dcatapde_provenance": {"$ref": "#/definitions/dkan_structure_multi_value"},
         "field_dcatapde_publisher": {"$ref": "#/definitions/dkan_structure_url_title_attributes"},
-        # "field_dcatapde_qualityprocess": [],
-        # "field_dcatapde_relation": [],
+        "field_dcatapde_qualityprocess": {"$ref": "#/definitions/dkan_structure_url_title_attributes_optional"},
+        "field_dcatapde_relation": {"$ref": "#/definitions/dkan_structure_url_title_attributes_optional"},
         # "field_dcatapde_sample": [],
-        # "field_dcatapde_source": [],
+        "field_dcatapde_source": {"$ref": "#/definitions/dkan_structure_url_title_attributes_optional"},
         "field_dcatapde_spatialgeonames": {"$ref": "#/definitions/dkan_structure_url_title_attributes_optional"},
-        #"field_dcatapde_spatialplace": {"$ref": "#/definitions/dkan_structure_tids"},
-        # "field_dcatapde_temporal": [],
-        #"field_dcatapde_theme": {"$ref": "#/definitions/dkan_structure_tids"}
+        "field_dcatapde_spatialplace": {"$ref": "#/definitions/dkan_structure_tids"},
+        "field_dcatapde_temporal": {"$ref": "#/definitions/dkan_structure_single_value_or_null"},
+        "field_dcatapde_theme": {"$ref": "#/definitions/dkan_structure_tids"}
 
     },
     "required": [ "vid", "uid", "title", "status", "comment", "promote", "sticky",

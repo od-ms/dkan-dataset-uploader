@@ -45,11 +45,6 @@ def getDkanData(dataset: Dataset):
         dkanData["field_spatial_geographical_cover"]= {"und": [{"value": dataset.getValue(Dataset.GEO_LOCATION)}]}
     if dataset.getValue(Dataset.GEO_AREA):
         dkanData["field_spatial"] = {"und":[{"wkt":dataset.getValue(Dataset.GEO_AREA)}]}
-    # LICENS
-    # LICENSE_CUSTOM
-    # [x] DESCRIPTION s.o.
-    # [x] TEXT_FORMAT s.o.
-    # URL ?
     if dataset.getValue(Dataset.HOMEPAGE):
         dkanData["field_landing_page"] = {"und": [{"url": dataset.getValue(Dataset.HOMEPAGE)}]}
 
@@ -82,26 +77,46 @@ def getDkanData(dataset: Dataset):
         dkanData["field_language"] = {"und": [{"value": dataset.getValue(Dataset.LANG)}]}
     if dataset.getValue(Dataset.DATA_STANDARD):
         dkanData["field_conforms_to"] = {"und": [{"url": dataset.getValue(Dataset.DATA_STANDARD)}]}
+    #if dataset.getValue(Dataset.LICENSE):
+    #    dkanData["field_license"] = {"und": [
+    #        {"select": "select_or_other",
+    #        "other": [{ "value": dataset.getValue(Dataset.LICENSE)}] }]}
+
+    # I guess these can all have multiple values ... TODO!
+    if dataset.getValue(Dataset.DD_GEO_A):
+        dkanData["field_spatial_geographical_cover"] = {"und": [{"value": dataset.getValue(Dataset.DD_GEO_A)}]}
+    if dataset.getValue(Dataset.DD_LEGAL):
+        dkanData["field_dcatapde_legalbase"] = {"und": [{"value": dataset.getValue(Dataset.DD_LEGAL)}]}
+    if dataset.getValue(Dataset.DD_OTHER):
+        dkanData["field_dcatapde_otherid"] = {"und": [{"value": dataset.getValue(Dataset.DD_OTHER)}]}
+    if dataset.getValue(Dataset.DD_PROV):
+        dkanData["field_dcatapde_provenance"] = {"und": [{"value": dataset.getValue(Dataset.DD_PROV)}]}
 
     for nextField in [Dataset.RELATED_CONTENT, Dataset.DD_CONTRIBUTOR, Dataset.DD_CREATOR, Dataset.DD_MAINTAINER,
-        Dataset.DD_ORIGINATOR, Dataset.DD_PUBLISHER, Dataset.DD_GEONAMES]:
+        Dataset.DD_ORIGINATOR, Dataset.DD_PUBLISHER, Dataset.DD_GEONAMES, Dataset.DD_REL, Dataset.DD_SOURCE,
+        Dataset.DD_QUAL]:
 
-        logging.debug("next field %s", nextField)
         if dataset.getValue(nextField):
             logging.debug("Converting data structure of 'related content' field:")
             relatedkey, relatedcontent = dataset.getTitleUrlAttributes(nextField)
             dkanData[relatedkey] = {"und": relatedcontent}
             print(json.dumps(dkanData[relatedkey], indent=2))
 
-
-    for nextField in [Dataset.DD_GEOCODE, Dataset.DD_GEOLEVEL, Dataset.KEYWORDS, Dataset.TAGS]:
+    for nextField in [Dataset.DD_GEOCODE, Dataset.DD_GEOLEVEL, Dataset.KEYWORDS, Dataset.TAGS, Dataset.DD_GRANU,
+        Dataset.DD_LANG, Dataset.DD_PLACE, Dataset.DD_THEME]:
         if dataset.getRawValue(nextField):
             relatedkey, relatedcontent = dataset.getFieldNameAndTaxonomyValue(nextField)
             dkanData[relatedkey] ={"und": expand_into("tid", relatedcontent)}
 
-    # STATE = 'State'
-    # DATE_CREATED = 'Created'
-    # DATE_MODIFIED = 'Modified'
+    if dataset.getRawValue(Dataset.DD_TSTART):
+        dkanData["field_dcatapde_temporal"] = {
+            "und": [{
+                "value": dataset.getRawValue(Dataset.DD_TSTART)
+            }]
+        }
+        if dataset.getRawValue(Dataset.DD_TEND):
+            dkanData["field_dcatapde_temporal"]['und'][0]['value2'] = dataset.getRawValue(Dataset.DD_TEND)
+
 
         # "field_granularity": {"und": [{"value": "longitude/latitude"}]},
 
@@ -129,8 +144,6 @@ def getDkanData(dataset: Dataset):
         # find tags ids on this page: https://opendata.stadt-.de/admin/structure/taxonomy/tags
 
     if dataset.getRawValue(Dataset.TEMPORAL_START):
-
-
         dkanData["field_temporal_coverage"] = {
             "und": [{
                 "value": dataset.getRawValue(Dataset.TEMPORAL_START)
