@@ -34,6 +34,7 @@ class ExcelResultFile:
     current_dataset_nr = 0
     existing_dataset_ids = {}
     dataset_tag_names=  {}
+    taxonomy_cache = {}
     column_mapping = []
 
     def __init__(self, filename, extra_columns):
@@ -227,6 +228,14 @@ class ExcelResultFile:
 
         return '?'
 
+    def get_taxonomy_value(self, taxonomy_name, t_id):
+        if taxonomy_name not in self.taxonomy_cache:
+            self.taxonomy_cache[taxonomy_name] = dkanhelpers.HttpHelper.get_taxonomy_values(taxonomy_name)
+
+        if t_id in self.taxonomy_cache[taxonomy_name]:
+            return self.taxonomy_cache[taxonomy_name][t_id]
+
+        return '?'
 
     def convert_dkan_data_to_excel_row_hash(self, package_data, dkan_node, skip_resources):
         #logging.debug("package_data %s", package_data)
@@ -262,7 +271,8 @@ class ExcelResultFile:
                 for t_index in range(0,10):
                     rel = self.get_nested_json_value(dkan_node, [active_field, 'und', t_index])
                     if rel:
-                        related_content.append('"{}" ({})'.format(rel['title'].replace('"', "'"), rel['url']))
+                        s_title = rel['title'] if rel['title'] else ""
+                        related_content.append('"{}" ({})'.format(s_title.replace('"', "'"), rel['url']))
                     value = ", ".join(related_content)
 
             elif column_key[:10] == "CATEGORIES":
@@ -283,6 +293,17 @@ class ExcelResultFile:
                     t_id = self.get_nested_json_value(dkan_node, ["field_dataset_tags", 'und', t_index, 'tid'])
                     if t_id:
                         t_name = self.get_dataset_tag_name(t_id)
+                        tags.append('"{}" ({})'.format(t_name, t_id))
+                    value = ", ".join(tags)
+
+            elif column_key[:7] == "TID_REF":
+                s_dummy, s_node_field, s_taxonomy_name = column_key.split('|')
+                tags = []
+                for t_index in range(0,10):
+                    t_id = self.get_nested_json_value(dkan_node, [s_node_field, 'und', t_index, 'tid'])
+                    if t_id:
+                # API returns only taxonomy ID. We can get the value via admin page parsing.
+                        t_name = self.get_taxonomy_value(s_taxonomy_name, t_id)
                         tags.append('"{}" ({})'.format(t_name, t_id))
                     value = ", ".join(tags)
 

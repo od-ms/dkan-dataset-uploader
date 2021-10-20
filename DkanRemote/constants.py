@@ -153,7 +153,7 @@ class Resource:
         ''' Internal test: check if our class definition is correct '''
         members = [getattr(Resource, attr) for attr in dir(Resource) if not callable(getattr(Resource, attr)) and not attr.startswith("_")]
 
-        known_columns = {**get_column_config_resource(), **get_column_config_resource_detailed()}
+        known_columns = {**get_column_config_resource(True), **get_column_config_resource_detailed()}
         for member in members:
             if not member in known_columns:
                 raise AbortProgramError(_('Programmfehler: Resource-Objekt nutzt eine Spalte "{}" die es garnicht gibt.').format(member))
@@ -201,6 +201,9 @@ class Dataset:
     DD_MAINTAINER = 'DD Maintainer'
     DD_ORIGINATOR = 'DD Originator'
     DD_PUBLISHER = 'DD Publisher'
+    DD_GEONAMES = 'DD Geonames'
+    DD_GEOCODE = 'DD Geocode'
+    DD_GEOLEVEL = 'DD Geolevel'
     _row = {}
 
     def __init__(self, row):
@@ -472,6 +475,11 @@ def get_column_config_dataset():
         'DD Maintainer': 'RELATED|field_dcatapde_maintainer',
         'DD Originator': 'RELATED|field_dcatapde_originator',
         'DD Publisher': 'RELATED|field_dcatapde_publisher',
+        'DD Geonames': 'RELATED|field_dcatapde_spatialgeonames',
+
+        ##      Format: "TID_REF|$node_json_field_name|$taxonomy_name"
+        'DD Geocode': 'TID_REF|field_dcatapde_geocode|dcat_geocoding',
+        'DD Geolevel': 'TID_REF|field_dcatapde_geolevel|dcat_geocoding_level',
 
         # Versionsinformationen ?
         # Einstellungen für Kommentare (Öffnen / Geschlossen)
@@ -504,7 +512,7 @@ def get_column_config_resource_detailed():
 
 
 
-def get_column_config_resource():
+def get_column_config_resource(get_all=False):
     """ All columns of DKAN resources in our excel file"""
 
     # TODO there are some more fields in the node json, do we need them?
@@ -532,7 +540,7 @@ def get_column_config_resource():
     #       "URL-Alias-Einstellungen" => finden sich NICHT im API response der ressource wieder
     }
 
-    if config.detailed_resources:
+    if config.detailed_resources and not get_all:
         del columns['Resource-Typ']
 
     return columns
@@ -685,11 +693,11 @@ nodeSchema = {
         ###############################
         "field_dcatapde_contributor": {"$ref": "#/definitions/dkan_structure_url_title_attributes"},
         "field_dcatapde_creator": {"$ref": "#/definitions/dkan_structure_url_title_attributes"},
-        # "field_dcatapde_geocode": {"$ref": "#/definitions/dkan_structure_target_ids"},
+        "field_dcatapde_geocode": {"$ref": "#/definitions/dkan_structure_tids"},
         # "field_dcatapde_geodesc": [],
-        #"field_dcatapde_geolevel": {"$ref": "#/definitions/dkan_structure_target_ids"},
-        #"field_dcatapde_granularity": {"$ref": "#/definitions/dkan_structure_target_ids"},
-        #"field_dcatapde_language": {"$ref": "#/definitions/dkan_structure_target_ids"},
+        "field_dcatapde_geolevel": {"$ref": "#/definitions/dkan_structure_tids"},
+        #"field_dcatapde_granularity": {"$ref": "#/definitions/dkan_structure_tids"},
+        #"field_dcatapde_language": {"$ref": "#/definitions/dkan_structure_tids"},
         # "field_dcatapde_legalbase": [],
         "field_dcatapde_maintainer": {"$ref": "#/definitions/dkan_structure_url_title_attributes"},
         "field_dcatapde_originator": {"$ref": "#/definitions/dkan_structure_url_title_attributes"},
@@ -700,10 +708,10 @@ nodeSchema = {
         # "field_dcatapde_relation": [],
         # "field_dcatapde_sample": [],
         # "field_dcatapde_source": [],
-        #"field_dcatapde_spatialgeonames": {"$ref": "#/definitions/dkan_structure_url_title_attributes"},
-        #"field_dcatapde_spatialplace": {"$ref": "#/definitions/dkan_structure_target_ids"},
+        "field_dcatapde_spatialgeonames": {"$ref": "#/definitions/dkan_structure_url_title_attributes_optional"},
+        #"field_dcatapde_spatialplace": {"$ref": "#/definitions/dkan_structure_tids"},
         # "field_dcatapde_temporal": [],
-        #"field_dcatapde_theme": {"$ref": "#/definitions/dkan_structure_target_ids"}
+        #"field_dcatapde_theme": {"$ref": "#/definitions/dkan_structure_tids"}
 
     },
     "required": [ "vid", "uid", "title", "status", "comment", "promote", "sticky",
@@ -820,6 +828,31 @@ nodeSchema = {
                 }
             ]
         },
+        "dkan_structure_url_title_attributes_optional": {
+            "anyOf": [
+                {   "type": "object",
+                    "properties": {
+                        "und": {
+                            "type": "array",
+                            "minItems": 1,
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "url": {"type": "string"},
+                                    "title": {"type": ["null", "string"]},
+                                    "attributes": {"type": "array"}
+                                },
+                                "required": ["url", "title"]
+                            }
+                        }
+                    }
+                },
+                {   "type": "array",
+                    "maxItems": 0
+                }
+            ]
+        },
+
         "dkan_structure_tids": {
             "anyOf": [
                 {   "type": "object",

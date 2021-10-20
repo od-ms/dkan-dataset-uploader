@@ -87,7 +87,9 @@ def getDkanData(dataset: Dataset):
     if dataset.getValue(Dataset.DATA_STANDARD):
         dkanData["field_conforms_to"] = {"und": [{"url": dataset.getValue(Dataset.DATA_STANDARD)}]}
 
-    for nextField in [Dataset.RELATED_CONTENT, Dataset.DD_CONTRIBUTOR, Dataset.DD_CREATOR, Dataset.DD_MAINTAINER, Dataset.DD_ORIGINATOR, Dataset.DD_PUBLISHER]:
+    for nextField in [Dataset.RELATED_CONTENT, Dataset.DD_CONTRIBUTOR, Dataset.DD_CREATOR, Dataset.DD_MAINTAINER,
+        Dataset.DD_ORIGINATOR, Dataset.DD_PUBLISHER, Dataset.DD_GEONAMES]:
+
         logging.debug("next field %s", nextField)
         if dataset.getValue(nextField):
             logging.debug("Converting data structure of 'related content' field:")
