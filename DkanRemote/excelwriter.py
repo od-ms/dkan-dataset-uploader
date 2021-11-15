@@ -7,6 +7,7 @@ import json
 import logging
 import hashlib
 import traceback
+from random import random
 from jsonschema import validate
 from jsonschema.exceptions import ValidationError
 import xlrd
@@ -457,7 +458,7 @@ class DkanApiAccess:
 
     def read_single_package(self, package_id):
         result = self.read_remote_json_with_cache(
-            config.api_package_details + package_id,
+            config.api_package_details + package_id + '&cachebuster={}'.format(random()),
             'package_details_{}.json'.format( package_id )
             )
         return result["result"][0]
@@ -468,7 +469,7 @@ class DkanApiAccess:
             Or from local cache file if it exists
         """
         return self.read_remote_json_with_cache(
-            config.api_resource_list,
+            config.api_resource_list + '&cacheBuster={}'.format(random()),
             'current_package_list_with_resources{}.json'.format( hashlib.md5(config.api_resource_list.encode()).hexdigest()
             )
         )

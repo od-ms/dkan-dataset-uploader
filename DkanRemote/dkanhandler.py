@@ -77,10 +77,12 @@ def getDkanData(dataset: Dataset):
         dkanData["field_language"] = {"und": [{"value": dataset.getValue(Dataset.LANG)}]}
     if dataset.getValue(Dataset.DATA_STANDARD):
         dkanData["field_conforms_to"] = {"und": [{"url": dataset.getValue(Dataset.DATA_STANDARD)}]}
-    #if dataset.getValue(Dataset.LICENSE):
+    if dataset.getValue(Dataset.LICENSE):
     #    dkanData["field_license"] = {"und": [
     #        {"select": "select_or_other",
     #        "other": [{ "value": dataset.getValue(Dataset.LICENSE)}] }]}
+        dkanData["field_license"] = {"und": [
+            {"value": dataset.getValue(Dataset.LICENSE)}] }
 
     # I guess these can all have multiple values ... TODO!
     if dataset.getValue(Dataset.DD_GEO_A):
