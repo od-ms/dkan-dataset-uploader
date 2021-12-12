@@ -324,6 +324,18 @@ def getResourceDkanData(resource, nid, title):
             "field_link_api": {"und": [{"url": resource.getValue(Resource.URL)}]},
         })
 
+    for nextField in [Resource.DD_LICENSE, Resource.DD_STATUS, Resource.DD_LANGUAGE, Resource.DD_AVAIL]:
+        if resource.getRawValue(nextField):
+            relatedkey, relatedcontent = resource.getFieldNameAndTaxonomyValue(nextField)
+            rData[relatedkey] ={"und": expand_into("tid", relatedcontent)}
+
+    if resource.getValue(Resource.DD_RIGHTS):
+        rData["field_dcatapde_rights"] = {"und": [{"url": resource.getValue(Resource.DD_RIGHTS)}]}
+    if resource.getValue(Resource.DD_LICENSETEXT):
+        rData["field_dcatapde_licatt"] = {"und": [{"value": resource.getValue(Resource.DD_LICENSETEXT)}]}
+    if resource.getValue(Resource.DD_CONFORM):
+        rData["field_conforms_to"] = {"und": [{"url": resource.getValue(Resource.DD_CONFORM)}]}
+
     return rData
 
 

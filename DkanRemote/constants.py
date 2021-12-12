@@ -33,6 +33,14 @@ class Resource:
     FRONTPAGE = 'Startseite'        # 1 = "Auf der Startseite", 0 = sonst
     TYP2 = 'Resource-Typ-Detail'    # gleiches wie "TYP", nur hier wird zusätzlich ausgegeben, ob es sich um "remote_file" handelt,
                                     # (was zig mal mehr DKAN-requests erfordert)
+    # DCAT Felder
+    DD_LICENSE = 'DD License'
+    DD_LICENSETEXT = 'DD Licensetext'
+    DD_STATUS = 'DD Status'
+    DD_LANGUAGE = 'DD Res.Lang.'
+    DD_AVAIL = 'DD Availability'
+    DD_RIGHTS = 'DD Rights'
+    DD_CONFORM = 'DD ConformsTo'
 
     # we dont write these to DKAN, they are only in the Excel file:
     HTTP_CODE = 'HTTP-Responsecode'
@@ -101,6 +109,15 @@ class Resource:
             logging.error(" Dateiname hat keine Dateierweiterung (z.B. '.csv').")
 
 
+    def getFieldNameAndTaxonomyValue(self, valueName):
+        column_config = {**get_column_config_resource(), **get_column_config_resource_detailed()}
+        field_name_raw = column_config[valueName]
+        if field_name_raw[:7] != "TID_REF":
+            logging.error(_('Feld Name hätte "TID_REF" sein müssen: %s'), field_name_raw)
+        s_dummy, field_name, taxonomy_name = field_name_raw.split('|')
+        return field_name, self.getValue(valueName)
+
+
     @staticmethod
     def create(row):
 
@@ -137,10 +154,21 @@ class Resource:
         self._row[field] = value
 
 
-    def getValue(self, valueName):
+    def getRawValue(self, valueName, default=""):
         if (valueName == Resource.TYP) and (Resource.TYP not in self._row) and (Resource.TYP2 in self._row):
             return self._row[Resource.TYP2]
         return self._row[valueName] if valueName in self._row else ''
+
+
+    def getValue(self, valueName, default=""):
+        known_columns = {**get_column_config_resource(True), **get_column_config_resource_detailed()}
+        column_key = known_columns[valueName]
+        value =""
+        if (column_key[:7] == "TID_REF"):
+            value = Dataset.getValueForTidRef(column_key, valueName, self.getRawValue(valueName))
+        else:
+            value = self.getRawValue(valueName)
+        return value if value else default
 
 
     def __repr__(self):
@@ -148,18 +176,21 @@ class Resource:
     def __str__(self):
         return self._row[Resource.NAME]
 
+
     @staticmethod
     def verify():
         ''' Internal test: check if our class definition is correct '''
         members = [getattr(Resource, attr) for attr in dir(Resource) if not callable(getattr(Resource, attr)) and not attr.startswith("_")]
+        logging.debug("members %s", members)
 
         known_columns = {**get_column_config_resource(True), **get_column_config_resource_detailed()}
+        logging.debug("known_columns %s", known_columns)
         for member in members:
             if not member in known_columns:
                 raise AbortProgramError(_('Programmfehler: Resource-Objekt nutzt eine Spalte "{}" die es garnicht gibt.').format(member))
         for column in known_columns:
             if not column in members:
-                raise AbortProgramError(_("DKAN-Spalte {} fehlt in Dataset class definition.").format(column))
+                raise AbortProgramError(_("DKAN-Spalte {} fehlt in Resource class definition.").format(column))
 
 
 class Dataset:
@@ -222,6 +253,7 @@ class Dataset:
 
     def __init__(self, row):
         self._row = row
+
 
     @staticmethod
     def create(row):
@@ -297,6 +329,7 @@ class Dataset:
 
         return new_object
 
+
     @staticmethod
     def verify():
         ''' Internal test: check if our Dataset class definition is correct '''
@@ -308,6 +341,49 @@ class Dataset:
         for column in known_columns:
             if not column in members:
                 raise AbortProgramError(_("DKAN-Spalte {} fehlt in Dataset class definition.").format(column))
+
+
+    @staticmethod
+    def getValueForTidRef(column_key, valueName, tags):
+        '''Helper Method to retrieve values that are referenced by "tid" REF-ID'''
+        s_node_field, s_taxonomy_name = column_key[8:].split('|')
+
+        tags_in_dataset = re.findall(r'[“"]([^“"”]+)[”"]', tags)
+        ids_in_dataset = re.findall(r'\((\d+)\)', tags)
+        if tags_in_dataset:
+            logging.debug(_("'%s': %s"), valueName, tags_in_dataset)
+        if ids_in_dataset:
+            logging.debug(_("'%s' IDs: %s"), valueName, ids_in_dataset)
+
+        has_error = False
+        if tags and not (tags_in_dataset or ids_in_dataset):
+            has_error = True
+            logging.error(_('Problem bei "%s". Wert wurde nicht erkannt: %s'), valueName, tags)
+
+        all_tags_in_dkan = dkanhelpers.HttpHelper.get_taxonomy_values(s_taxonomy_name)
+
+        # TODOs we completely ignore ids_in_dataset .. do we need that at all?
+        has_error = False
+        value = []
+        for tag_name in tags_in_dataset:
+            found = ''
+            for tkey, tval in all_tags_in_dkan.items():
+                if tval.lower() == tag_name.lower():
+                    found = tkey
+                    logging.debug("%s gefunden: %s '%s'", valueName, tkey, tag_name)
+            if not found:
+                logging.error("'%s' unbekannt: '%s' wird verworfen", valueName, tag_name)
+                has_error = True
+            else:
+                value.append(found)
+        if has_error:
+            logging.error(_('Problem bei "%s". Mögliche Lösung:'), valueName)
+            logging.error(_('a) Bitte schreiben Sie %s immer in Anführungszeichen, z.B.: "Statistik", "API"'), valueName)
+            logging.error(_('b) Sie können nur %s verwenden, die im DKAN Administrationsbereich angelegt wurden.'), valueName)
+            logging.error(_('Mögliche Werte für "%s" sind:'), valueName)
+            logging.error(_('%s'), all_tags_in_dkan.values())
+        logging.debug("Gefunden -%s-: %s", s_node_field, value)
+        return value
 
 
     def getRawValue(self, valueName, default=""):
@@ -332,43 +408,7 @@ class Dataset:
         column_key = known_columns[valueName]
 
         if (column_key[:7] == "TID_REF"):
-            s_node_field, s_taxonomy_name = column_key[8:].split('|')
-            tags = self.getRawValue(valueName)
-            tags_in_dataset = re.findall(r'[“"]([^“"”]+)[”"]', tags)
-            ids_in_dataset = re.findall(r'\((\d+)\)', tags)
-            if tags_in_dataset:
-                logging.debug(_("'%s': %s"), valueName, tags_in_dataset)
-            if ids_in_dataset:
-                logging.debug(_("'%s' IDs: %s"), valueName, ids_in_dataset)
-
-            has_error = False
-            if tags and not (tags_in_dataset or ids_in_dataset):
-                has_error = True
-                logging.error(_('Problem bei "%s". Wert wurde nicht erkannt: %s'), valueName, tags)
-
-            all_tags_in_dkan = dkanhelpers.HttpHelper.get_taxonomy_values(s_taxonomy_name)
-
-            # TODOs we completely ignore ids_in_dataset .. do we need that at all?
-            has_error = False
-            value = []
-            for tag_name in tags_in_dataset:
-                found = ''
-                for tkey, tval in all_tags_in_dkan.items():
-                    if tval.lower() == tag_name.lower():
-                        found = tkey
-                        logging.debug("%s gefunden: %s '%s'", valueName, tkey, tag_name)
-                if not found:
-                    logging.error("'%s' unbekannt: '%s' wird verworfen", valueName, tag_name)
-                    has_error = True
-                else:
-                    value.append(found)
-            if has_error:
-                logging.error(_('Problem bei "%s". Mögliche Lösung:'), valueName)
-                logging.error(_('a) Bitte schreiben Sie %s immer in Anführungszeichen, z.B.: "Statistik", "API"'), valueName)
-                logging.error(_('b) Sie können nur %s verwenden, die im DKAN Administrationsbereich angelegt wurden.'), valueName)
-                logging.error(_('Mögliche Werte für "%s" sind:'), valueName)
-                logging.error(_('%s'), all_tags_in_dkan.values())
-            logging.debug("Gefunden -%s-: %s", s_node_field, value)
+            value = Dataset.getValueForTidRef(column_key, valueName, self.getRawValue(valueName))
 
         elif valueName == Dataset.GROUPS:
             tags = self.getRawValue(valueName)
@@ -544,6 +584,13 @@ def get_column_config_resource_detailed():
         'Veröffentlicht?': ['status'],      # 1 = Veröffentlicht,  0 = Nicht veröffentlicht
         'Startseite': ['promote'],          # 1 = "Auf der Startseite", 0 = sonst
         'Beschreibung-Format': ["body", "und", 0, "format"],
+        'DD License': 'TID_REF|field_dcatapde_license|dcat_license',
+        'DD Licensetext': ["field_dcatapde_licatt", "und", 0, "value"],
+        'DD Res.Lang.': 'TID_REF|field_dcatapde_languagesingle|dcat_language',
+        'DD Rights': ["field_dcatapde_rights", "und", 0, "url"],
+        'DD ConformsTo': ["field_conforms_to", "und", 0, "url"],
+        'DD Status': 'TID_REF|field_dcatapde_status|dcat_status',
+        'DD Availability': 'TID_REF|field_dcatapde_avail|dcat_availability',
         'Resource-Typ-Detail': 'RTYPE_DETAILED',
     }
     return detailed_columns

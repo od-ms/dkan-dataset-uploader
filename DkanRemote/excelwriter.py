@@ -230,6 +230,20 @@ class ExcelResultFile:
         return '?'
 
 
+    def handle_tid_ref(self, dkan_node, column_key):
+        s_dummy, s_node_field, s_taxonomy_name = column_key.split('|')
+        tags = []
+        value = None
+        for t_index in range(0,10):
+            t_id = self.get_nested_json_value(dkan_node, [s_node_field, 'und', t_index, 'tid'])
+            if t_id:
+        # API returns only taxonomy ID. We can get the value via admin page parsing.
+                t_name = self.get_taxonomy_value(s_taxonomy_name, t_id)
+                tags.append('"{}" ({})'.format(t_name, t_id))
+            value = ", ".join(tags)
+        return value
+
+
     def convert_dkan_data_to_excel_row_hash(self, package_data, dkan_node, skip_resources):
         #logging.debug("package_data %s", package_data)
         #logging.debug("dkan_node %s", dkan_node)
@@ -269,15 +283,7 @@ class ExcelResultFile:
                     value = ", ".join(related_content)
 
             elif column_key[:7] == "TID_REF":
-                s_dummy, s_node_field, s_taxonomy_name = column_key.split('|')
-                tags = []
-                for t_index in range(0,10):
-                    t_id = self.get_nested_json_value(dkan_node, [s_node_field, 'und', t_index, 'tid'])
-                    if t_id:
-                # API returns only taxonomy ID. We can get the value via admin page parsing.
-                        t_name = self.get_taxonomy_value(s_taxonomy_name, t_id)
-                        tags.append('"{}" ({})'.format(t_name, t_id))
-                    value = ", ".join(tags)
+                value = self.handle_tid_ref(dkan_node, column_key)
 
             else:
                 if column_key in package_data:
@@ -335,6 +341,10 @@ class ExcelResultFile:
                         rc_value = ""
                         if isinstance(rc_key, list):
                             rc_value = self.get_nested_json_value(resource_node, rc_key)
+
+                        elif rc_key[:7] == "TID_REF":
+                            rc_value = self.handle_tid_ref(resource_node, rc_key)
+
                         elif rc_key == 'RTYPE_DETAILED':
                             if self.get_nested_json_value(resource_node, ["field_link_api", 'und', 0, 'url']):
                                 rc_value = constants.ResourceType.TYPE_URL
