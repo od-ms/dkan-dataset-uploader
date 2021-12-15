@@ -8,6 +8,7 @@ import ssl
 from urllib.parse import urlparse
 from urllib.request import urlopen
 from urllib.request import urlretrieve
+from random import random
 from timeit import default_timer as timer
 import requests
 from . import config
@@ -18,12 +19,11 @@ class HttpHelper:
     ''' helper methods .. refactor '''
 
     file_formats = None
-    dkan_tags = None
-    dkan_categories = None
+    taxonomy_cache = {}
 
     @staticmethod
     def read_dkan_node(node_id):
-        node_data = HttpHelper.read_remote_json_with_cache(config.x_api_get_node_details.format(node_id), '{}-complete.json'.format(node_id))
+        node_data = HttpHelper.read_remote_json_with_cache(config.x_api_get_node_details.format(node_id, random()), '{}-complete.json'.format(node_id))
         return node_data
 
 
@@ -41,7 +41,7 @@ class HttpHelper:
                 logging.debug(_('Nutze Cachedatei "%s" '), temp_file)
             else:
                 ti = timer()
-                r = requests.get(remote_url)
+                r = requests.get(remote_url, headers={'Cache-Control': 'no-cache', "Pragma": "no-cache"})
                 myfile = r.text
 
                 logging.debug(_('{:.4f}s URL-Ladezeit: "{}"').format(timer() - ti, remote_url))
@@ -62,17 +62,10 @@ class HttpHelper:
 
 
     @staticmethod
-    def get_all_dkan_categories():
-        if not HttpHelper.dkan_categories:
-            HttpHelper.dkan_categories = HttpHelper.parse_admin_page_contents(dkanhandler.getApi(), '/admin/structure/taxonomy/tags')
-        return HttpHelper.dkan_categories
-
-
-    @staticmethod
-    def get_all_dkan_tags():
-        if not HttpHelper.dkan_tags:
-            HttpHelper.dkan_tags = HttpHelper.parse_admin_page_contents(dkanhandler.getApi(), '/admin/structure/taxonomy/dataset_tags')
-        return HttpHelper.dkan_tags
+    def get_taxonomy_values(taxonomy_name):
+        if taxonomy_name not in HttpHelper.taxonomy_cache:
+            HttpHelper.taxonomy_cache[taxonomy_name] = HttpHelper.parse_admin_page_contents(dkanhandler.getApi(), '/admin/structure/taxonomy/{}'.format(taxonomy_name))
+        return HttpHelper.taxonomy_cache[taxonomy_name]
 
 
     @staticmethod

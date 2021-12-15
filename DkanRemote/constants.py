@@ -33,6 +33,14 @@ class Resource:
     FRONTPAGE = 'Startseite'        # 1 = "Auf der Startseite", 0 = sonst
     TYP2 = 'Resource-Typ-Detail'    # gleiches wie "TYP", nur hier wird zusätzlich ausgegeben, ob es sich um "remote_file" handelt,
                                     # (was zig mal mehr DKAN-requests erfordert)
+    # DCAT Felder
+    DD_LICENSE = 'DD License'
+    DD_LICENSETEXT = 'DD Licensetext'
+    DD_STATUS = 'DD Status'
+    DD_LANGUAGE = 'DD Res.Lang.'
+    DD_AVAIL = 'DD Availability'
+    DD_RIGHTS = 'DD Rights'
+    DD_CONFORM = 'DD ConformsTo'
 
     # we dont write these to DKAN, they are only in the Excel file:
     HTTP_CODE = 'HTTP-Responsecode'
@@ -101,6 +109,15 @@ class Resource:
             logging.error(" Dateiname hat keine Dateierweiterung (z.B. '.csv').")
 
 
+    def getFieldNameAndTaxonomyValue(self, valueName):
+        column_config = {**get_column_config_resource(), **get_column_config_resource_detailed()}
+        field_name_raw = column_config[valueName]
+        if field_name_raw[:7] != "TID_REF":
+            logging.error(_('Feld Name hätte "TID_REF" sein müssen: %s'), field_name_raw)
+        s_dummy, field_name, taxonomy_name = field_name_raw.split('|')
+        return field_name, self.getValue(valueName)
+
+
     @staticmethod
     def create(row):
 
@@ -137,10 +154,21 @@ class Resource:
         self._row[field] = value
 
 
-    def getValue(self, valueName):
+    def getRawValue(self, valueName, default=""):
         if (valueName == Resource.TYP) and (Resource.TYP not in self._row) and (Resource.TYP2 in self._row):
             return self._row[Resource.TYP2]
         return self._row[valueName] if valueName in self._row else ''
+
+
+    def getValue(self, valueName, default=""):
+        known_columns = {**get_column_config_resource(True), **get_column_config_resource_detailed()}
+        column_key = known_columns[valueName]
+        value =""
+        if (column_key[:7] == "TID_REF"):
+            value = Dataset.getValueForTidRef(column_key, valueName, self.getRawValue(valueName))
+        else:
+            value = self.getRawValue(valueName)
+        return value if value else default
 
 
     def __repr__(self):
@@ -148,18 +176,21 @@ class Resource:
     def __str__(self):
         return self._row[Resource.NAME]
 
+
     @staticmethod
     def verify():
         ''' Internal test: check if our class definition is correct '''
         members = [getattr(Resource, attr) for attr in dir(Resource) if not callable(getattr(Resource, attr)) and not attr.startswith("_")]
+        logging.debug("members %s", members)
 
-        known_columns = {**get_column_config_resource(), **get_column_config_resource_detailed()}
+        known_columns = {**get_column_config_resource(True), **get_column_config_resource_detailed()}
+        logging.debug("known_columns %s", known_columns)
         for member in members:
             if not member in known_columns:
                 raise AbortProgramError(_('Programmfehler: Resource-Objekt nutzt eine Spalte "{}" die es garnicht gibt.').format(member))
         for column in known_columns:
             if not column in members:
-                raise AbortProgramError(_("DKAN-Spalte {} fehlt in Dataset class definition.").format(column))
+                raise AbortProgramError(_("DKAN-Spalte {} fehlt in Resource class definition.").format(column))
 
 
 class Dataset:
@@ -168,14 +199,13 @@ class Dataset:
     DATASET_ID = 'Dataset-ID'
     NODE_ID = 'Node-ID'
     NAME = 'Dataset-Name'
-    TITLE = 'Titel'
+    TITLE = 'Title'
     AUTHOR = 'Author'
     CONTACT_NAME = 'Contact Name'
     CONTACT_EMAIL = 'Contact Email'
     GEO_LOCATION = 'Geographical Location'
     GEO_AREA = 'Geographical Coverage Area'
     LICENSE = 'License'
-    LICENSE_CUSTOM = 'Custom License'
     HOMEPAGE = 'Homepage URL'
     DESCRIPTION = 'Description'
     TEXT_FORMAT = 'Textformat'
@@ -197,10 +227,33 @@ class Dataset:
     DATE_CREATED = 'Created'
     DATE_MODIFIED = 'Modified'
 
+    DD_CONTRIBUTOR = 'DD Contributor'
+    DD_CREATOR = 'DD Creator'
+    DD_MAINTAINER = 'DD Maintainer'
+    DD_ORIGINATOR = 'DD Originator'
+    DD_PUBLISHER = 'DD Publisher'
+    DD_GEONAMES = 'DD Geonames'
+    DD_GEOCODE = 'DD Geocode'
+    DD_GEOLEVEL = 'DD Geolevel'
+    DD_REL = 'DD Relation'
+    DD_SOURCE = 'DD Source'
+    DD_QUAL = 'DD Qualityprocess'
+    DD_GRANU = 'DD Granularity'
+    DD_LANG = 'DD Language'
+    DD_PLACE = 'DD Place'
+    DD_THEME = 'DD Thema'
+    DD_GEO_A ='DD Geo-Abdeckung'
+    DD_LEGAL = 'DD Rechtsgrundlage'
+    DD_OTHER = 'DD andere ID'
+    DD_PROV = 'DD Provenienz'
+    DD_TSTART = 'DD Temporal Start'
+    DD_TEND = 'DD Temporal End'
+
     _row = {}
 
     def __init__(self, row):
         self._row = row
+
 
     @staticmethod
     def create(row):
@@ -276,6 +329,7 @@ class Dataset:
 
         return new_object
 
+
     @staticmethod
     def verify():
         ''' Internal test: check if our Dataset class definition is correct '''
@@ -287,6 +341,49 @@ class Dataset:
         for column in known_columns:
             if not column in members:
                 raise AbortProgramError(_("DKAN-Spalte {} fehlt in Dataset class definition.").format(column))
+
+
+    @staticmethod
+    def getValueForTidRef(column_key, valueName, tags):
+        '''Helper Method to retrieve values that are referenced by "tid" REF-ID'''
+        s_node_field, s_taxonomy_name = column_key[8:].split('|')
+
+        tags_in_dataset = re.findall(r'[“"]([^“"”]+)[”"]', tags)
+        ids_in_dataset = re.findall(r'\((\d+)\)', tags)
+        if tags_in_dataset:
+            logging.debug(_("'%s': %s"), valueName, tags_in_dataset)
+        if ids_in_dataset:
+            logging.debug(_("'%s' IDs: %s"), valueName, ids_in_dataset)
+
+        has_error = False
+        if tags and not (tags_in_dataset or ids_in_dataset):
+            has_error = True
+            logging.error(_('Problem bei "%s". Wert wurde nicht erkannt: %s'), valueName, tags)
+
+        all_tags_in_dkan = dkanhelpers.HttpHelper.get_taxonomy_values(s_taxonomy_name)
+
+        # TODOs we completely ignore ids_in_dataset .. do we need that at all?
+        has_error = False
+        value = []
+        for tag_name in tags_in_dataset:
+            found = ''
+            for tkey, tval in all_tags_in_dkan.items():
+                if tval.lower() == tag_name.lower():
+                    found = tkey
+                    logging.debug("%s gefunden: %s '%s'", valueName, tkey, tag_name)
+            if not found:
+                logging.error("'%s' unbekannt: '%s' wird verworfen", valueName, tag_name)
+                has_error = True
+            else:
+                value.append(found)
+        if has_error:
+            logging.error(_('Problem bei "%s". Mögliche Lösung:'), valueName)
+            logging.error(_('a) Bitte schreiben Sie %s immer in Anführungszeichen, z.B.: "Statistik", "API"'), valueName)
+            logging.error(_('b) Sie können nur %s verwenden, die im DKAN Administrationsbereich angelegt wurden.'), valueName)
+            logging.error(_('Mögliche Werte für "%s" sind:'), valueName)
+            logging.error(_('%s'), all_tags_in_dkan.values())
+        logging.debug("Gefunden -%s-: %s", s_node_field, value)
+        return value
 
 
     def getRawValue(self, valueName, default=""):
@@ -307,53 +404,18 @@ class Dataset:
 
     def getValue(self, valueName, default=""):
 
-        if (valueName == Dataset.TAGS) or (valueName == Dataset.KEYWORDS):
-            tags = self.getRawValue(valueName)
-            tags_in_dataset = re.findall(r'[“"]([^“"”]+)[”"]', tags)
-            ids_in_dataset = re.findall(r'\((\d+)\)', tags)
-            if tags_in_dataset:
-                logging.debug(_("'%s': %s"), valueName, tags_in_dataset)
-            if ids_in_dataset:
-                logging.debug(_("'%s' IDs: %s"), valueName, ids_in_dataset)
+        known_columns = get_column_config_dataset()
+        column_key = known_columns[valueName]
 
-            has_error = False
-            if tags and not (tags_in_dataset or ids_in_dataset):
-                has_error = True
-                logging.error(_('Problem bei "%s". Wert wurde nicht erkannt: %s'), valueName, tags)
-
-            if valueName == Dataset.KEYWORDS:
-                all_tags_in_dkan = dkanhelpers.HttpHelper.get_all_dkan_tags()
-            else:
-                all_tags_in_dkan = dkanhelpers.HttpHelper.get_all_dkan_categories()
-
-            # TODOs we completely ignore ids_in_dataset .. do we need that at all?
-            has_error = False
-            value = []
-            for tag_name in tags_in_dataset:
-                found = ''
-                for tkey, tval in all_tags_in_dkan.items():
-                    if tval.lower() == tag_name.lower():
-                        found = tkey
-                        logging.debug("%s gefunden: %s '%s'", valueName, tkey, tag_name)
-                if not found:
-                    logging.error("'%s' unbekannt: '%s' wird verworfen", valueName, tag_name)
-                    has_error = True
-                else:
-                    value.append(found)
-            if has_error:
-                logging.error(_('Problem bei "%s". Mögliche Lösung:'), valueName)
-                logging.error(_('a) Bitte schreiben Sie %s immer in Anführungszeichen, z.B.: "Statistik", "API"'), valueName)
-                logging.error(_('b) Sie können nur %s verwenden, die im DKAN Administrationsbereich angelegt wurden.'), valueName)
-                logging.error(_('Mögliche Werte für "%s" sind:'), valueName)
-                logging.error(_('%s'), all_tags_in_dkan.values())
-            logging.debug("Gefundene tags: %s", value)
+        if (column_key[:7] == "TID_REF"):
+            value = Dataset.getValueForTidRef(column_key, valueName, self.getRawValue(valueName))
 
         elif valueName == Dataset.GROUPS:
             tags = self.getRawValue(valueName)
             value = re.findall(r'"([^"]*)"\s+\((\d+)\)', tags)
             logging.debug(_("Gefundene Gruppen: %s"), value)
 
-        elif valueName == Dataset.RELATED_CONTENT:
+        elif column_key[:7] == "RELATED":
             tags = self.getRawValue(valueName)
             value = re.findall(r'"([^"]*)"\s+\(([^"]*)\)', tags)
             logging.debug(_("Einträge '%s' gefunden: %s"), valueName, value)
@@ -364,6 +426,30 @@ class Dataset:
         return value if value else default
 
 
+    def getFieldNameAndTaxonomyValue(self, valueName):
+        column_config = get_column_config_dataset()
+        field_name_raw = column_config[valueName]
+        if field_name_raw[:7] != "TID_REF":
+            logging.error(_('Feld Name hätte "TID_REF" sein müssen: %s'), field_name_raw)
+        s_dummy, field_name, taxonomy_name = field_name_raw.split('|')
+        return field_name, self.getValue(valueName)
+
+
+    def getTitleUrlAttributes(self, valueName):
+        relatedcontent = self.getValue(valueName)
+        column_config = get_column_config_dataset()
+        field_name_raw = column_config[valueName]
+        field_name = field_name_raw[8:]
+        logging.debug(_("gTUA '%s' gefunden: %s"), valueName, field_name)
+
+        related_list = []
+        for related_entry in relatedcontent:
+            related_list.append({
+                "title": related_entry[0],
+                "url": related_entry[1],
+                "attributes": []
+                })
+        return field_name, related_list
 
     def __str__(self):
         return '{} ({})'.format(
@@ -415,9 +501,9 @@ def get_column_config_dataset():
     columns_config = {
         'Dataset-ID': "id",
         'Node-ID': ["nid"],
-        'Titel': "title",
+        'Title': "title",
         'Groups': 'COLLECT|groups.title',
-        'Tags': 'CATEGORIES', # field_tags
+        'Tags': 'TID_REF|field_tags|tags',
         'Description': "notes",
         'Textformat': ["body", "und", 0, "format"],
         'Homepage URL': ['field_landing_page', 'und', 0, 'url'],
@@ -428,8 +514,8 @@ def get_column_config_dataset():
         'Contact Email': "author_email",
         'Geographical Location': ['field_spatial_geographical_cover', 'und', 0, 'value'],
         'Geographical Coverage Area': ['field_spatial', 'und', 0, 'wkt'],
-        'License': "license_title",
-        'Custom License': ['field_license', 'und', 0, 'value'],
+        # 'License': "license_title", # was removed..?
+        'License': ['field_license', 'und', 0, 'value'],
         'Frequency': ['field_frequency', 'und', 0, 'value'], #example value: "R/P1Y" ?
         'Temporal Coverage Start': ['field_temporal_coverage', 'und', 0, 'value'],
         'Temporal Coverage End': ['field_temporal_coverage', 'und', 0, 'value2'],
@@ -439,11 +525,40 @@ def get_column_config_dataset():
         'Public Access Level': ["field_public_access_level", "und", 0, "value"],
         'Data Standard': ['field_conforms_to', "und", 0, "url"],
         'Language': ["field_language", 'und', 0, 'value'],
-        'Related Content': 'RELATED',
+        'Related Content': 'RELATED|field_related_content',
         # [x] Additional Info => wird anders eingebunden
         # [x] Resources => wird anders eingebunden
         # [x] Playground => Ein paar Felder, die anscheinend nur für Köln relevant sind
         # [x] Harvest Source => verwenden wir nicht, habe ich in der Doku erklärt
+
+        ##      Fields for dcat-ap.de      ##
+        'DD Contributor': 'RELATED|field_dcatapde_contributor',
+        'DD Creator': 'RELATED|field_dcatapde_creator',
+        'DD Maintainer': 'RELATED|field_dcatapde_maintainer',
+        'DD Originator': 'RELATED|field_dcatapde_originator',
+        'DD Publisher': 'RELATED|field_dcatapde_publisher',
+        'DD Geonames': 'RELATED|field_dcatapde_spatialgeonames',
+        'DD Relation': 'RELATED|field_dcatapde_relation',
+        'DD Source': 'RELATED|field_dcatapde_source',
+        'DD Qualityprocess': 'RELATED|field_dcatapde_qualityprocess',
+
+        ##      Format: "TID_REF|$node_json_field_name|$taxonomy_name"
+        'DD Geocode': 'TID_REF|field_dcatapde_geocode|dcat_geocoding',
+        'DD Geolevel': 'TID_REF|field_dcatapde_geolevel|dcat_geocoding_level',
+        'DD Granularity': 'TID_REF|field_dcatapde_granularity|dcat_frequency',
+        'DD Language': 'TID_REF|field_dcatapde_language|dcat_language',
+        'DD Place': 'TID_REF|field_dcatapde_spatialplace|dcat_place',
+        'DD Thema': 'TID_REF|field_dcatapde_theme|dcat_theme',
+
+        'DD Geo-Abdeckung': ['field_dcatapde_geodesc', 'und', 0, 'value'],
+        'DD Rechtsgrundlage': ['field_dcatapde_legalbase', 'und', 0, 'value'],
+
+        'DD andere ID': ['field_dcatapde_otherid', 'und', 0, 'value'], # TODO - HIER SIND MULTIPLE WERTE MÖGLICH!
+        'DD Provenienz': ['field_dcatapde_provenance', 'und', 0, 'value'], # TODO - HIER SIND MULTIPLE WERTE MÖGLICH!
+
+        'DD Temporal Start': ['field_dcatapde_temporal', 'und', 0, 'value'],
+        'DD Temporal End': ['field_dcatapde_temporal', 'und', 0, 'value2'],
+
 
         # Versionsinformationen ?
         # Einstellungen für Kommentare (Öffnen / Geschlossen)
@@ -457,7 +572,7 @@ def get_column_config_dataset():
         'State': "state",
         'Created': "metadata_created",
         'Modified': "metadata_modified",
-        'Schlagworte': 'TAGS'  # field_dataset_tags
+        'Schlagworte': 'TID_REF|field_dataset_tags|dataset_tags'
     }
     return columns_config
 
@@ -469,6 +584,13 @@ def get_column_config_resource_detailed():
         'Veröffentlicht?': ['status'],      # 1 = Veröffentlicht,  0 = Nicht veröffentlicht
         'Startseite': ['promote'],          # 1 = "Auf der Startseite", 0 = sonst
         'Beschreibung-Format': ["body", "und", 0, "format"],
+        'DD License': 'TID_REF|field_dcatapde_license|dcat_license',
+        'DD Licensetext': ["field_dcatapde_licatt", "und", 0, "value"],
+        'DD Res.Lang.': 'TID_REF|field_dcatapde_languagesingle|dcat_language',
+        'DD Rights': ["field_dcatapde_rights", "und", 0, "url"],
+        'DD ConformsTo': ["field_conforms_to", "und", 0, "url"],
+        'DD Status': 'TID_REF|field_dcatapde_status|dcat_status',
+        'DD Availability': 'TID_REF|field_dcatapde_avail|dcat_availability',
         'Resource-Typ-Detail': 'RTYPE_DETAILED',
     }
     return detailed_columns
@@ -476,7 +598,7 @@ def get_column_config_resource_detailed():
 
 
 
-def get_column_config_resource():
+def get_column_config_resource(get_all=False):
     """ All columns of DKAN resources in our excel file"""
 
     # TODO there are some more fields in the node json, do we need them?
@@ -504,7 +626,7 @@ def get_column_config_resource():
     #       "URL-Alias-Einstellungen" => finden sich NICHT im API response der ressource wieder
     }
 
-    if config.detailed_resources:
+    if config.detailed_resources and not get_all:
         del columns['Resource-Typ']
 
     return columns
@@ -628,7 +750,7 @@ nodeSchema = {
         "field_granularity": {"$ref": "#/definitions/dkan_structure_single_value"},
         "field_license": {"$ref": "#/definitions/dkan_structure_single_value"},
         "field_public_access_level": {"$ref": "#/definitions/dkan_structure_single_value"},
-        "field_related_content": {"$ref": "#/definitions/dkan_structure_related_content"},
+        "field_related_content": {"$ref": "#/definitions/dkan_structure_url_title_attributes"},
         "field_resources": {"$ref": "#/definitions/dkan_structure_target_ids"},
         "field_spatial": {"$ref": "#/definitions/dkan_structure_spatial"},
         "field_spatial_geographical_cover": {"$ref": "#/definitions/dkan_structure_single_value"},
@@ -641,6 +763,7 @@ nodeSchema = {
         "field_rights": {"type": "array"},
         "field_playground": {"$ref": "#/definitions/dkan_structure"},
         "field_dataset_tags": {"$ref": "#/definitions/dkan_structure_tids"},
+
         "path": {"type": "string"},
         "cid": {"type": ["number", "string"]},
         "last_comment_timestamp": {"type": "string"},
@@ -650,6 +773,32 @@ nodeSchema = {
         "name": {"type": "string"},
         "picture": {"type": "string"},
         "data": {"type": ["null", "string"]},
+
+        ###############################
+        ##   fields for dcat-ap-de   ##
+        ###############################
+        "field_dcatapde_contributor": {"$ref": "#/definitions/dkan_structure_url_title_attributes"},
+        "field_dcatapde_creator": {"$ref": "#/definitions/dkan_structure_url_title_attributes"},
+        "field_dcatapde_geocode": {"$ref": "#/definitions/dkan_structure_tids"},
+        "field_dcatapde_geodesc": {"$ref": "#/definitions/dkan_structure_single_value"},
+        "field_dcatapde_geolevel": {"$ref": "#/definitions/dkan_structure_tids"},
+        "field_dcatapde_granularity": {"$ref": "#/definitions/dkan_structure_tids"},
+        "field_dcatapde_language": {"$ref": "#/definitions/dkan_structure_tids"},
+        "field_dcatapde_legalbase": {"$ref": "#/definitions/dkan_structure_single_value"},
+        "field_dcatapde_maintainer": {"$ref": "#/definitions/dkan_structure_url_title_attributes"},
+        "field_dcatapde_originator": {"$ref": "#/definitions/dkan_structure_url_title_attributes"},
+        "field_dcatapde_otherid": {"$ref": "#/definitions/dkan_structure_multi_value"},
+        "field_dcatapde_provenance": {"$ref": "#/definitions/dkan_structure_multi_value"},
+        "field_dcatapde_publisher": {"$ref": "#/definitions/dkan_structure_url_title_attributes"},
+        "field_dcatapde_qualityprocess": {"$ref": "#/definitions/dkan_structure_url_title_attributes_optional"},
+        "field_dcatapde_relation": {"$ref": "#/definitions/dkan_structure_url_title_attributes_optional"},
+        # "field_dcatapde_sample": [],
+        "field_dcatapde_source": {"$ref": "#/definitions/dkan_structure_url_title_attributes_optional"},
+        "field_dcatapde_spatialgeonames": {"$ref": "#/definitions/dkan_structure_url_title_attributes_optional"},
+        "field_dcatapde_spatialplace": {"$ref": "#/definitions/dkan_structure_tids"},
+        "field_dcatapde_temporal": {"$ref": "#/definitions/dkan_structure_single_value_or_null"},
+        "field_dcatapde_theme": {"$ref": "#/definitions/dkan_structure_tids"}
+
     },
     "required": [ "vid", "uid", "title", "status", "comment", "promote", "sticky",
         "vuuid", "nid", "type", "language", "created", "changed", "tnid", "translate",
@@ -741,7 +890,7 @@ nodeSchema = {
                 }
             ]
         },
-        "dkan_structure_related_content": {
+        "dkan_structure_url_title_attributes": {
             "anyOf": [
                 {   "type": "object",
                     "properties": {
@@ -765,6 +914,31 @@ nodeSchema = {
                 }
             ]
         },
+        "dkan_structure_url_title_attributes_optional": {
+            "anyOf": [
+                {   "type": "object",
+                    "properties": {
+                        "und": {
+                            "type": "array",
+                            "minItems": 1,
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "url": {"type": "string"},
+                                    "title": {"type": ["null", "string"]},
+                                    "attributes": {"type": "array"}
+                                },
+                                "required": ["url", "title"]
+                            }
+                        }
+                    }
+                },
+                {   "type": "array",
+                    "maxItems": 0
+                }
+            ]
+        },
+
         "dkan_structure_tids": {
             "anyOf": [
                 {   "type": "object",
