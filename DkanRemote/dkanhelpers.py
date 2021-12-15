@@ -46,10 +46,10 @@ class HttpHelper:
 
                 logging.debug(_('{:.4f}s URL-Ladezeit: "{}"').format(timer() - ti, remote_url))
 
-                with open(temp_file, 'w') as fw:
+                with open(temp_file, mode='w', encoding='utf-8') as fw:
                     fw.write(myfile)
 
-            with open(temp_file, 'r') as json_data:
+            with open(temp_file, mode='r', encoding='utf-8') as json_data:
                 data = json.load(json_data)
 
         except json.decoder.JSONDecodeError as err:
