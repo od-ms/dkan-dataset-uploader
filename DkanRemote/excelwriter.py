@@ -404,10 +404,26 @@ class DkanApiAccess:
 
     @staticmethod
     def get_node_id_for_package_id(package_id):
-        node_search = dkanhelpers.HttpHelper.read_remote_json_with_cache(config.x_api_find_node_id.format(package_id), '{}.json'.format(package_id))
+        temp_url = config.x_api_find_node_id.format(package_id)
+        node_search = dkanhelpers.HttpHelper.read_remote_json_with_cache(temp_url, '{}.json'.format(package_id))
+        if not node_search:
+            DkanApiAccess.log_api_error_infos(temp_url)
+            return None
+
         if node_search[0]['nid']:
             return node_search[0]['nid']
         return None
+
+
+    @staticmethod
+    def log_api_error_infos(url):
+        logging.error(' ----- ')
+        logging.error(_('Fehler! Leere Response für folgende URL:'))
+        logging.error('{}{}'.format(config.dkan_url, url))
+        logging.error(_('Diese URL ^ müsste eigentlich etwas zurückgeben!'))
+        logging.error(_('Bitte prüfen Sie, ob bei Ihrer DKAN-Installation die DKAN-API aktiviert ist!'))
+        logging.error(_('Das Problem liegt mit sehr hoher Wahrscheinlichkeit daran, dass die DKAN-API in Ihrer DKAN-Instanz nicht aktiv ist.'))
+        logging.error(' ----- ')
 
 
     def get_resource_http_status(self, url):
@@ -444,6 +460,11 @@ class DkanApiAccess:
             raise AbortProgramError(_('Node-ID zu Package-ID {} fehlt oder konnte nicht gefunden werden.').format(package_id))
 
         node_data = dkanhelpers.HttpHelper.read_dkan_node(node_id)
+        if not node_data:
+            temp_url = config.x_api_get_node_details.format(node_id)
+            DkanApiAccess.log_api_error_infos(temp_url)
+            raise AbortProgramError()
+
         isValid = self.validateJson(node_data, constants.nodeSchema)
         if not isValid:
             print(json.dumps(node_data, indent=2))
@@ -706,20 +727,22 @@ def test_and_status(command_line_excel_filename):
         logging.info(_(" - Die folgende Tests werden ausgeführt mit Datensatz '%s' (%s)."), first_dataset['title'], dataset_id)
 
         # check the ckan-package-json response
+        logging.info(_(" - Prüfung der CKAN-API.."))
         isValid1 = dkanApi.validateJson(first_dataset, constants.datasetSchema)
         if not isValid1:
-            logging.warning(_(" - Unerwartete API-Response bei 'current_package_list_with_resources'"))
+            logging.warning(_("   - Unerwartete API-Response bei 'current_package_list_with_resources'"))
         else:
-            logging.info(_(" - Keine Probleme bei API-Response 'current_package_list_with_resources'"))
+            logging.info(_("   - Keine Probleme bei API-Response 'current_package_list_with_resources'"))
 
         # check the node.json response
+        logging.info(_(" - Prüfung der DKAN-API.."))
         isValid2 = False
         try:
             dkanApi.readDatasetNodeJson(dataset_id, None)
-            logging.info(_(" - Keine Probleme bei API-Response 'node.json'"))
+            logging.info(_("   - Keine Probleme bei API-Response 'node.json'"))
             isValid2 = True
         except ValueError:
-            logging.warning(_(" - Unerwartete API-Response bei 'node.json'"))
+            logging.warning(_("   - Unerwartete API-Response bei 'node.json'"))
 
         if isValid1 and isValid2:
             logging.info(_(" - DKAN Instanz scheint kompatibel zu sein"))
