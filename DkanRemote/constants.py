@@ -993,8 +993,8 @@ nodeSchema = {
                             "items": {
                                 "type": "object",
                                 "properties": {
-                                    "first": {"type": "string"},
-                                    "second": {"type": "string"}
+                                    "first": {"type": ["null", "string"]},
+                                    "second": {"type": ["null", "string"]}
                                 },
                                 "required": ["first", "second"]
                             }
