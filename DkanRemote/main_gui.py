@@ -313,6 +313,7 @@ class MainGui(Frame):
         self.empty_space = Label(master, text="")
         self.empty_space.grid(row=currentRow, column=0, sticky=E, pady=(y_spacing, 0))
         master.rowconfigure( currentRow, weight=1 )
+        self.clear_temp_dir()
 
 
     def init_logging_textarea(self, window):

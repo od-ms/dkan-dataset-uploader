@@ -7,6 +7,7 @@ import json
 import logging
 import hashlib
 import traceback
+from random import random
 from jsonschema import validate
 from jsonschema.exceptions import ValidationError
 import xlrd
@@ -34,6 +35,7 @@ class ExcelResultFile:
     current_dataset_nr = 0
     existing_dataset_ids = {}
     dataset_tag_names=  {}
+    taxonomy_cache = {}
     column_mapping = []
 
     def __init__(self, filename, extra_columns):
@@ -217,15 +219,29 @@ class ExcelResultFile:
         return constants.get_column_config_resource()
 
 
-    def get_dataset_tag_name(self, t_id):
-        ''' Helper function that returns a dataset_tag name for a ID, with data fetching & caching '''
-        if not self.dataset_tag_names:
-            self.dataset_tag_names = dkanhelpers.HttpHelper.get_all_dkan_tags()
+    def get_taxonomy_value(self, taxonomy_name, t_id):
+        ''' Helper function that returns a taxonomy value for an ID, with data fetching & caching '''
+        if taxonomy_name not in self.taxonomy_cache:
+            self.taxonomy_cache[taxonomy_name] = dkanhelpers.HttpHelper.get_taxonomy_values(taxonomy_name)
 
-        if t_id in self.dataset_tag_names:
-            return self.dataset_tag_names[t_id]
+        if t_id in self.taxonomy_cache[taxonomy_name]:
+            return self.taxonomy_cache[taxonomy_name][t_id]
 
         return '?'
+
+
+    def handle_tid_ref(self, dkan_node, column_key):
+        s_dummy, s_node_field, s_taxonomy_name = column_key.split('|')
+        tags = []
+        value = None
+        for t_index in range(0,10):
+            t_id = self.get_nested_json_value(dkan_node, [s_node_field, 'und', t_index, 'tid'])
+            if t_id:
+        # API returns only taxonomy ID. We can get the value via admin page parsing.
+                t_name = self.get_taxonomy_value(s_taxonomy_name, t_id)
+                tags.append('"{}" ({})'.format(t_name, t_id))
+            value = ", ".join(tags)
+        return value
 
 
     def convert_dkan_data_to_excel_row_hash(self, package_data, dkan_node, skip_resources):
@@ -257,32 +273,17 @@ class ExcelResultFile:
 
             elif column_key[:7] == "RELATED":
                 related_content = []
+                active_field = column_key[8:]
+                logging.debug("     RELATED: %s => %s", column_key, active_field)
                 for t_index in range(0,10):
-                    rel = self.get_nested_json_value(dkan_node, ["field_related_content", 'und', t_index])
+                    rel = self.get_nested_json_value(dkan_node, [active_field, 'und', t_index])
                     if rel:
-                        related_content.append('"{}" ({})'.format(rel['title'].replace('"', "'"), rel['url']))
+                        s_title = rel['title'] if rel['title'] else ""
+                        related_content.append('"{}" ({})'.format(s_title.replace('"', "'"), rel['url']))
                     value = ", ".join(related_content)
 
-            elif column_key[:10] == "CATEGORIES":
-                if 'tags' in package_data:
-                    c_index = 0
-                    categories = []
-                    # read category name from ckan_data and read category id from dkan_node, they are in same order
-                    for category in package_data['tags']:
-                        c_id = self.get_nested_json_value(dkan_node, ["field_tags", 'und', c_index, 'tid'])
-                        categories.append('"{}" ({})'.format(category['name'].replace('"', "'"), c_id))
-                        c_index += 1
-                    value = ", ".join(categories)
-
-            elif column_key[:4] == "TAGS":
-                # Because of weird DKAN api, we can only get the tag ID, but not the tag name ...
-                tags = []
-                for t_index in range(0,10):
-                    t_id = self.get_nested_json_value(dkan_node, ["field_dataset_tags", 'und', t_index, 'tid'])
-                    if t_id:
-                        t_name = self.get_dataset_tag_name(t_id)
-                        tags.append('"{}" ({})'.format(t_name, t_id))
-                    value = ", ".join(tags)
+            elif column_key[:7] == "TID_REF":
+                value = self.handle_tid_ref(dkan_node, column_key)
 
             else:
                 if column_key in package_data:
@@ -340,6 +341,10 @@ class ExcelResultFile:
                         rc_value = ""
                         if isinstance(rc_key, list):
                             rc_value = self.get_nested_json_value(resource_node, rc_key)
+
+                        elif rc_key[:7] == "TID_REF":
+                            rc_value = self.handle_tid_ref(resource_node, rc_key)
+
                         elif rc_key == 'RTYPE_DETAILED':
                             if self.get_nested_json_value(resource_node, ["field_link_api", 'und', 0, 'url']):
                                 rc_value = constants.ResourceType.TYPE_URL
@@ -463,7 +468,7 @@ class DkanApiAccess:
 
     def read_single_package(self, package_id):
         result = self.read_remote_json_with_cache(
-            config.api_package_details + package_id,
+            config.api_package_details + package_id + '&cachebuster={}'.format(random()),
             'package_details_{}.json'.format( package_id )
             )
         return result["result"][0]
@@ -474,7 +479,7 @@ class DkanApiAccess:
             Or from local cache file if it exists
         """
         return self.read_remote_json_with_cache(
-            config.api_resource_list,
+            config.api_resource_list + '&cacheBuster={}'.format(random()),
             'current_package_list_with_resources{}.json'.format( hashlib.md5(config.api_resource_list.encode()).hexdigest()
             )
         )

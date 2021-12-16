@@ -29,7 +29,7 @@ message_level = "Debug"
 # ------------------------------------------------------------------------
 
 x_api_find_node_id = "/api/dataset/node.json?parameters[uuid]={}"
-x_api_get_node_details = "/api/dataset/node/{}.json"
+x_api_get_node_details = "/api/dataset/node/{}.json?cachebuster={}"
 
 x_download_extended_dataset_infos = True
 x_temp_dir = 'temp/'
