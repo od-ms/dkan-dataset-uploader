@@ -44,7 +44,10 @@ class HttpHelper:
                 r = requests.get(remote_url, headers={'Cache-Control': 'no-cache', "Pragma": "no-cache"})
                 myfile = r.text
 
-                logging.debug(_('{:.4f}s URL-Ladezeit: "{}"').format(timer() - ti, remote_url))
+                logging.debug(_('HTTP {} | {:.2f}s für: "{}"').format(r.status_code, timer() - ti, remote_url))
+                if r.status_code not in [200,302]:
+                    logging.warning(_('Warnung: HTTP {} ist vermutlich ein Problem!').format(r.status_code))
+                    logging.warning(_('Betroffene URL: {} ').format(remote_url))
 
                 with open(temp_file, mode='w', encoding='utf-8') as fw:
                     fw.write(myfile)
@@ -54,8 +57,7 @@ class HttpHelper:
 
         except json.decoder.JSONDecodeError as err:
             logging.debug(_("Fehlermeldung (beim Parsen der DKAN-API JSON-Daten): %s"), err)
-            logging.error(_("Fehler 5001 beim Lesen der Eingabedaten. Cache Datei wird gelöscht."))
-            logging.error(_("Bitte versuchen Sie es erneut. Wenn das nicht hilft, prüfen Sie die Fehlermeldung (s.o.) und konsultieren Sie die Dokumentation."))
+            logging.error(_("Fehler 5001 beim Lesen der Eingabedaten."))
             os.remove(temp_file)
 
         return data
