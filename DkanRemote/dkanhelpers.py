@@ -13,6 +13,46 @@ from timeit import default_timer as timer
 import requests
 from . import config
 from . import dkanhandler
+from . import constants
+
+
+class JsonHelper:
+
+    def get_resource_url(resource_node):
+        url_value = JsonHelper.get_nested_json_value(resource_node, ["field_link_api", 'und', 0, 'url'])
+        if url_value:
+            return constants.ResourceType.TYPE_URL, url_value
+        url_value = JsonHelper.get_nested_json_value(resource_node, ["field_link_remote_file", 'und', 0, 'uri'])
+        if url_value:
+            return constants.ResourceType.TYPE_REMOTE_FILE, url_value
+        url_value = JsonHelper.get_nested_json_value(resource_node, ["field_upload", 'und', 0, 'filename'])
+        if url_value:
+            return constants.ResourceType.TYPE_UPLOAD, url_value
+        url_value = JsonHelper.get_nested_json_value(resource_node, ["field_datastore_status", 'und', 0, 'filename'])
+        if url_value:
+            return constants.ResourceType.TYPE_DATASTORE, url_value
+
+
+    def get_nested_json_value(target_dict, keys):
+        node_value = None
+        try:
+            if len(keys) == 4:
+                node_value = target_dict[keys[0]][keys[1]][keys[2]][keys[3]]
+            elif len(keys) == 3:
+                node_value = target_dict[keys[0]][keys[1]][keys[2]]
+            elif len(keys) == 1:
+                node_value = target_dict[keys[0]]
+            else:
+                raise Exception("get_nested_json_value() not implemented for {} keys in: {}".format(len(keys), keys))
+
+
+        except (TypeError, KeyError, IndexError):
+            if not (len(keys)>2 and isinstance(keys[2], int) and keys[2]>0):
+                logging.debug(_(" [ ] %s"), keys[0])
+
+        return node_value
+
+
 
 
 class HttpHelper:
@@ -137,6 +177,9 @@ class HttpHelper:
 
         if not pydkan_instance:
             pydkan_instance = dkanhandler.getApi()
+        if not pydkan_instance:
+            logging.error(_("Anmeldung am DKAN fehlgeschlagen: %s"), admin_page_path)
+            return []
 
         tags_url = config.dkan_url + admin_page_path
         res = pydkan_instance.get(tags_url)

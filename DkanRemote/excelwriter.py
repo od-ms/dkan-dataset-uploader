@@ -122,17 +122,21 @@ class ExcelResultFile:
         self.worksheet.set_column('C:C', 20)
         self.worksheet.set_column(first_col=0, last_col=0, cell_format=self.small_font)
 
-        # Add group ("level: 1") to some columns so that they are "einklappbar"
+        # Add GROUPS ("level: 1") to columns so that they are "einklappbar" in Excel/LibreOffice
+        # => Important: Zwischen zwei Gruppen muss immer ein Feld sein, das keine Gruppe hat!
         self.worksheet.set_column('D:E', 16, None, {'level': 1})            # Tags, Groups
         self.worksheet.set_column('F:F', 30, self.small_font, {'level': 1}) # Description
         self.worksheet.set_column('G:G', 10, None, {'level': 1})            # Text_format
 
-        # Homepage bekommt kein Level weil das ist der Gruppen-Trenner
-        # (zwischen zwei Gruppen muss immer ein Feld sein, das keine Gruppe hat)
-        self.worksheet.set_column('H:H', 20, self.small_font)               # Homepage
+        # "Homepage" bekommt kein Level weil das ist der Gruppen-Trenner
+        self.worksheet.set_column('H:H', 20, self.small_font)
 
-        # Große Gruppe mit den diversen sonstigen Feldern
-        self.worksheet.set_column('J:AD', None, None, {'level': 1})
+        # Große Gruppe mit diversen Feldern
+        self.worksheet.set_column('I:Y', None, None, {'level': 1})
+
+        # Gruppe für DCAT-AP-DE Felder
+        self.worksheet.set_column('AA:AU', None, None, {'level': 1})
+
         self.set_extra_columns_group(first_row)
 
         # write header row
@@ -177,25 +181,6 @@ class ExcelResultFile:
         self.worksheet.write_row(self.current_row, 0, column_contents)
 
 
-    def get_nested_json_value(self, target_dict, keys):
-        node_value = None
-        try:
-            if len(keys) == 4:
-                node_value = target_dict[keys[0]][keys[1]][keys[2]][keys[3]]
-            elif len(keys) == 3:
-                node_value = target_dict[keys[0]][keys[1]][keys[2]]
-            elif len(keys) == 1:
-                node_value = target_dict[keys[0]]
-            else:
-                raise Exception("get_nested_json_value() not implemented for {} keys in: {}".format(len(keys), keys))
-
-
-        except (TypeError, KeyError, IndexError):
-            if not (len(keys)>2 and isinstance(keys[2], int) and keys[2]>0):
-                logging.debug(_(" [ ] %s"), keys[0])
-
-        return node_value
-
 
     def get_column_config_dataset(self):
         """ This contains the default configuration of a row"""
@@ -235,7 +220,7 @@ class ExcelResultFile:
         tags = []
         value = None
         for t_index in range(0,10):
-            t_id = self.get_nested_json_value(dkan_node, [s_node_field, 'und', t_index, 'tid'])
+            t_id = dkanhelpers.JsonHelper.get_nested_json_value(dkan_node, [s_node_field, 'und', t_index, 'tid'])
             if t_id:
         # API returns only taxonomy ID. We can get the value via admin page parsing.
                 t_name = self.get_taxonomy_value(s_taxonomy_name, t_id)
@@ -253,7 +238,7 @@ class ExcelResultFile:
         for column_name, column_key in self.get_column_config_dataset().items():
             value = None
             if isinstance(column_key, list):
-                value = self.get_nested_json_value(dkan_node, column_key)
+                value = dkanhelpers.JsonHelper.get_nested_json_value(dkan_node, column_key)
             elif (column_key[:6] == "EXTRA|") and ("extras" in package_data):
                 extra_key = column_key[6:]
                 #logging.debug("searching extra key %s", extra_key)
@@ -266,7 +251,7 @@ class ExcelResultFile:
                     groups = []
                     t_index = 0
                     for group in package_data['groups']: # luckily groups are in same order in both api endpoints
-                        g_id = self.get_nested_json_value(dkan_node, ["og_group_ref", 'und', t_index, 'target_id'])
+                        g_id = dkanhelpers.JsonHelper.get_nested_json_value(dkan_node, ["og_group_ref", 'und', t_index, 'target_id'])
                         groups.append('"{}" ({})'.format(group['title'].replace('"', "'"), g_id))
                         t_index += 1
                     value = ", ".join(groups)
@@ -276,7 +261,7 @@ class ExcelResultFile:
                 active_field = column_key[8:]
                 logging.debug("     RELATED: %s => %s", column_key, active_field)
                 for t_index in range(0,10):
-                    rel = self.get_nested_json_value(dkan_node, [active_field, 'und', t_index])
+                    rel = dkanhelpers.JsonHelper.get_nested_json_value(dkan_node, [active_field, 'und', t_index])
                     if rel:
                         s_title = rel['title'] if rel['title'] else ""
                         related_content.append('"{}" ({})'.format(s_title.replace('"', "'"), rel['url']))
@@ -340,20 +325,14 @@ class ExcelResultFile:
                     for column_name, rc_key in constants.get_column_config_resource_detailed().items():
                         rc_value = ""
                         if isinstance(rc_key, list):
-                            rc_value = self.get_nested_json_value(resource_node, rc_key)
+                            rc_value = dkanhelpers.JsonHelper.get_nested_json_value(resource_node, rc_key)
 
-                        elif rc_key[:7] == "TID_REF":
+                        elif rc_key[:7] == 'TID_REF':
                             rc_value = self.handle_tid_ref(resource_node, rc_key)
 
                         elif rc_key == 'RTYPE_DETAILED':
-                            if self.get_nested_json_value(resource_node, ["field_link_api", 'und', 0, 'url']):
-                                rc_value = constants.ResourceType.TYPE_URL
-                            elif self.get_nested_json_value(resource_node, ["field_link_remote_file", 'und', 0, 'uri']):
-                                rc_value = constants.ResourceType.TYPE_REMOTE_FILE
-                            elif self.get_nested_json_value(resource_node, ["field_upload", 'und', 0, 'filename']):
-                                rc_value = constants.ResourceType.TYPE_UPLOAD
-                            elif self.get_nested_json_value(resource_node, ["field_datastore_status", 'und', 0, 'filename']):
-                                rc_value = constants.ResourceType.TYPE_DATASTORE
+                            (rc_value, my_url) = dkanhelpers.JsonHelper.get_resource_url(resource_node)
+
                         else:
                             try:
                                 rc_value = resource_node[rc_key]
@@ -583,12 +562,28 @@ class Dkan2Excel:
                 # http-check package_data resources and add check result into nested resource list
                 if (not config.skip_resources) and ('resources' in package_data):
                     for index, resource in enumerate(package_data['resources']):
-                        if config.check_resources:
-                            logging.debug("Check: %s", resource['url'])
-                            (ok, response_code) = dkanApi.get_resource_http_status(resource['url'])
-                            logging.debug("Response: %s %s", ok, response_code)
+                        ok = response_code = resource_node = None
+                        resource_url = resource['url']
+
+                        if (not resource_url):
+                            logging.warn("Empty resource URL")
                         else:
-                            ok = response_code = None
+                            if (not resource_url.lower().startswith("http")):
+                                logging.warn("Unexpected resource URL. Re-loading via DKAN API.. %s", resource_url)
+                                resource_node_id = DkanApiAccess.get_node_id_for_package_id(resource['id'])
+                                resource_node = dkanhelpers.HttpHelper.read_dkan_node(resource_node_id)
+                                (my_resource_type, fixed_resource_url) = dkanhelpers.JsonHelper.get_resource_url(resource_node)
+                                resource_url = fixed_resource_url
+                                logging.warn("Dkan Resource Url: %s %s", my_resource_type, fixed_resource_url)
+
+                                # Fix Resouce url in ckan data array
+                                package_data['resources'][index]['url'] = fixed_resource_url
+
+                            if config.check_resources:
+                                logging.debug("Check: %s", resource_url)
+                                (ok, response_code) = dkanApi.get_resource_http_status(resource_url)
+                                logging.debug("Response: %s %s", ok, response_code)
+
                         package_data['resources'][index]['response_ok'] = ok
                         package_data['resources'][index]['response_code'] = response_code
 
