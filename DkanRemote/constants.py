@@ -13,6 +13,7 @@ class ResourceType:
     TYPE_DATASTORE = 'datastore'
     TYPE_REMOTE_FILE = 'remote_file' # Dieser Wert ist nur im Feld "Resource.TYP2" bei "detaillierten Ressourcen" mit drin
                                      # (was zig mal mehr DKAN-requests erfordert)
+    TYPE_NO_FILE = 'no_file'
 
 
 class Resource:
@@ -592,6 +593,7 @@ def get_column_config_resource_detailed():
         'DD Status': 'TID_REF|field_dcatapde_status|dcat_status',
         'DD Availability': 'TID_REF|field_dcatapde_avail|dcat_availability',
         'Resource-Typ-Detail': 'RTYPE_DETAILED',
+        'Resource-Path': 'RPATH',
     }
     return detailed_columns
 
