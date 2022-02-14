@@ -31,6 +31,7 @@ class JsonHelper:
         url_value = JsonHelper.get_nested_json_value(resource_node, ["field_datastore_status", 'und', 0, 'filename'])
         if url_value:
             return constants.ResourceType.TYPE_DATASTORE, url_value
+        return constants.ResourceType.TYPE_NO_FILE, ''
 
 
     def get_nested_json_value(target_dict, keys):
@@ -127,7 +128,7 @@ class HttpHelper:
 
 
     @staticmethod
-    def download_resource(url, lfd_nr):
+    def download_resource(url, lfd_nr, r_format):
 
         ctx = ssl.create_default_context()
         ctx.check_hostname = False
@@ -140,7 +141,7 @@ class HttpHelper:
             logging.error('Resource-URL kann nicht geöffnet werden: %s', url)
             return None
 
-        filename = ''
+        backup_filename = filename = ''
         try:
             logging.debug("remotefile info %s", remotefile.info())
             cd_header = remotefile.info()['Content-Disposition']
@@ -152,12 +153,14 @@ class HttpHelper:
             logging.debug('Kein Dateiname im Header, Fehler: %s', repr(err))
             filename = HttpHelper.get_resource_filename(url)
             logging.info("Dateiname aus URL: %s", filename)
+        if filename and (filename.find(".") == -1):
+            filename = filename + '.' + r_format
 
         if not filename:
-            logging.error("Dateiname konnte nicht herausgefunden werden.")
-            return None
+            logging.warn("Dateiname konnte nicht herausgefunden werden.")
+            backup_filename = 'unknown.{}'.format(r_format)
 
-        targetpath = os.path.normpath(os.path.join(config.download_dir, lfd_nr + '-' + filename))
+        targetpath = os.path.normpath(os.path.join(config.download_dir, lfd_nr + '-' + filename + backup_filename))
         logging.debug("Download Ziel: %s", targetpath)
 
         ti = timer()
