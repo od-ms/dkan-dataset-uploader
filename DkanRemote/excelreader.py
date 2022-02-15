@@ -1,5 +1,6 @@
 #! /usr/bin/python
 
+import re
 import logging
 import xlrd
 from .datasetuploader import DatasetUploader
@@ -83,8 +84,16 @@ class ExcelReader:
         constants.Dataset.verify()
         constants.Resource.verify()
 
+
+        if config.dataset_ids:
+        # write only the wanted dataset-ids into x_dataset_ids_temp
+            p = re.compile('[-\w]*limit\s*=\s*(\d+)[\w,]*')
+            config.x_dataset_ids_temp  = p.sub('', config.dataset_ids)
+
         self.columns_in_file = columns
         self.parse_rows(sheet)
+
+        config.x_dataset_ids_temp = ''
 
 
     def parse_rows(self, sheet):
@@ -99,7 +108,11 @@ class ExcelReader:
                 column_name = self.columns_in_file[i]
                 row[column_name] = column_value
 
-            logging.info(_("Zeile %s/%s"), row_nr, sheet.nrows)
+            logging.log(
+                # prevent showing too many uninteresting log messages if Datensatz-Beschränkung is set
+                logging.DEBUG if config.x_dataset_ids_temp else logging.INFO,
+                _("Zeile %s/%s"), row_nr, sheet.nrows
+                )
 
             dataset = constants.Dataset.create(row)
 

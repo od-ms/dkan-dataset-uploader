@@ -26,6 +26,7 @@ class Resource:
     DESCRIPTION_FORMAT = 'Beschreibung-Format'
     URL = 'Resource-Url'
     TYP = 'Resource-Typ'
+    PATH = 'Resource-Path'
 
     # Detaillierte Ressourcenfelder
     STICKY = 'Sticky'               # 1 = "Oben in Listen", 0 = sonst
@@ -147,7 +148,11 @@ class Resource:
                 logging.error(_("Spalte '%s' hat unbekannten Wert '%s'. Ressource wird nicht korrekt angezeigt werden."), Resource.DESCRIPTION_FORMAT, value)
                 logging.error(_("Erlaubte Werte: %s "), possible)
 
-        logging.info(_(" Resource-Felder: %s/%s ('%s')"), count_non_empty_dataset_fields, len(get_column_config_resource()), row[Resource.NAME])
+        logging.log(
+            # prevent showing too many uninteresting log messages if Datensatz-Beschränkung is set
+            logging.DEBUG if config.x_dataset_ids_temp else logging.INFO,
+            _(" Resource-Felder: %s/%s ('%s')"), count_non_empty_dataset_fields, len(get_column_config_resource()), row[Resource.NAME]
+            )
         return Resource(row)
 
 
@@ -290,8 +295,8 @@ class Dataset:
             value = row[Dataset.TEXT_FORMAT]
             possible = ["html", "bbcode", "plain_text", "full_html"]
             if not value in possible:
-                logging.error(_("Spalte '%s' hat unbekannten Wert '%s'. Datensatzbeschreibung wird nicht korrekt angezeigt werden."))
-                logging.error(_("Erlaubte Werte: %s "), Dataset.TEXT_FORMAT, value, possible)
+                logging.error(_("Spalte '%s' hat unbekannten Wert '%s'. Datensatzbeschreibung wird nicht korrekt angezeigt werden."), Dataset.TEXT_FORMAT, value)
+                logging.error(_("Erlaubte Werte: %s "), possible)
 
         # Validate temporal start
         if Dataset.TEMPORAL_START in row:
@@ -326,7 +331,14 @@ class Dataset:
                 row[Dataset.GEO_AREA] = ''
 
         new_object = Dataset(row)
-        logging.info(_(" Datensatz-Felder: %s/%s ('%s')"), count_non_empty_dataset_fields, len(get_column_config_dataset()), new_object.getValue(Dataset.TITLE))
+        logging.log(
+            # prevent showing too many uninteresting log messages if Datensatz-Beschränkung is set
+            logging.DEBUG if config.x_dataset_ids_temp else logging.INFO,
+            _(" Datensatz-Felder: %s/%s ('%s')"),
+            count_non_empty_dataset_fields,
+            len(get_column_config_dataset()),
+            new_object.getValue(Dataset.TITLE)
+            )
 
         return new_object
 

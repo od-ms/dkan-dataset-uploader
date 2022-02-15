@@ -36,3 +36,5 @@ x_temp_dir = 'temp/'
 x_log_dir = 'logs/'
 x_uploaded_resource_path = '/sites/default/files/'
 x_uploaded_datastore_path = '/api/action/datastore/'
+
+x_dataset_ids_temp = ""
