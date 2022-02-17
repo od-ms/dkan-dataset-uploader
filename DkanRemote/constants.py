@@ -65,19 +65,40 @@ class Resource:
         return uniqueId
 
 
-    def equals_existing_resource(self, resourceData):
+    @staticmethod
+    def extractUrlFromResourceData(resourceData):
         uniqueId = ''
+        urlType = ResourceType.TYPE_NO_FILE
         if ("und" in resourceData['field_link_api']) and (resourceData['field_link_api']['und'][0]['url']):
             uniqueId = resourceData['field_link_api']['und'][0]['url']
-        elif ('und' in resourceData['field_link_remote_file']) and (resourceData['field_link_remote_file']['und'][0]['uri']):
+            urlType = ResourceType.TYPE_URL
+        elif ('und' in resourceData['field_link_remote_file']) and ('uri' in resourceData['field_link_remote_file']['und'][0]) and (resourceData['field_link_remote_file']['und'][0]['uri']):
             uniqueId = resourceData['field_link_remote_file']['und'][0]['uri']
-        elif ('und' in resourceData['field_upload']) and (resourceData['field_upload']['und'][0]['filename']):
+            urlType = ResourceType.TYPE_REMOTE_FILE
+        elif ('und' in resourceData['field_link_remote_file']) and ('filefield_dkan_remotefile' in resourceData['field_link_remote_file']['und'][0]) and (resourceData['field_link_remote_file']['und'][0]['filefield_dkan_remotefile']):
+            uniqueId = resourceData['field_link_remote_file']['und'][0]['filefield_dkan_remotefile']['url']
+            urlType = ResourceType.TYPE_REMOTE_FILE
+        elif 'x_upload_file' in resourceData:
+            uniqueId = os.path.basename(resourceData['x_upload_file'])
+            urlType = ResourceType.TYPE_UPLOAD
+        elif ('field_upload' in resourceData) and ('und' in resourceData['field_upload']) and (resourceData['field_upload']['und'][0]['filename']):
             uniqueId = resourceData['field_upload']['und'][0]['filename']
+            urlType = ResourceType.TYPE_UPLOAD
 
+        # TODO: What to do with TYPE_DATASTORE??
+
+        return uniqueId, urlType
+
+
+    def equals_existing_resource(self, resourceData):
+        # if uuid is given, compare by uuid
         if ('uuid' in resourceData) and (Resource.RESOURCE_ID in self._row):
             return self._row[Resource.RESOURCE_ID] == resourceData['uuid']
-        elif uniqueId and (Resource.URL in self._row):
-            return self._row[Resource.URL] == uniqueId
+
+        # otherwise compare by url or title
+        (resourceUrl, resourceType) = Resource.extractUrlFromResourceData(resourceData)
+        if resourceUrl and (Resource.URL in self._row):
+            return self._row[Resource.URL] == resourceUrl
         elif ('title' in resourceData) and (Resource.NAME in self._row):
             return resourceData['title'] == self._row[Resource.NAME]
         else:

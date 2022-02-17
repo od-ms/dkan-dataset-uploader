@@ -23,6 +23,7 @@ api_encoding = "utf-8"
 overwrite_rows = False
 dataset_ids = ""
 message_level = "Debug"
+force_resource_update = False
 
 # ------------------------------------------------------------------------
 # Internal settings, only change below here if you know what you are doing
@@ -34,6 +35,8 @@ x_api_get_node_details = "/api/dataset/node/{}.json?cachebuster={}"
 x_download_extended_dataset_infos = True
 x_temp_dir = 'temp/'
 x_log_dir = 'logs/'
+
+# these paths will be used to detect resource types "datastore" and "uploaded_file" in fast mode
 x_uploaded_resource_path = '/sites/default/files/'
 x_uploaded_datastore_path = '/api/action/datastore/'
 

@@ -257,7 +257,7 @@ def getDatasetDetails(nid):
     return r.json()
 
 
-def getResourceDkanData(resource, nid, title):
+def getResourceDkanData(resource, nid, title, existingDataNode):
     """Return dkan node json data structure for RESOURCES"""
 
     if not isinstance(resource, Resource):
@@ -302,10 +302,19 @@ def getResourceDkanData(resource, nid, title):
         "field_link_api": {"und": [{"url": ""}]}
     }
 
+    # if updating an existing uploaded file - we need to copy over the old "filed_upload" values, otherwise update will fail with 505 error
+    rTypeDetailed = resource.getRawValue(Resource.TYP2)
+    if existingDataNode and (rTypeDetailed == ResourceType.TYPE_UPLOAD) and ("field_upload" in existingDataNode) and existingDataNode["field_upload"]:
+        logging.debug("file is uploaded")
+        rData.update({
+            "field_upload": existingDataNode["field_upload"]
+        })
+
+    # if new file should be uploaded, add our internal field "x_upload_file" for later use
     fileUploadPath = resource.getUploadFilePath()
     if fileUploadPath:
         rData.update({
-            "upload_file": fileUploadPath,
+            "x_upload_file": fileUploadPath,
         })
 
     elif resource.getValue(Resource.TYP) == ResourceType.TYPE_DATASTORE:
@@ -319,7 +328,7 @@ def getResourceDkanData(resource, nid, title):
                 "display": 1
             }]}
         })
-    else:
+    elif not ("field_upload" in rData):
         rData.update({
             "field_link_api": {"und": [{"url": resource.getValue(Resource.URL)}]},
         })
@@ -340,7 +349,7 @@ def getResourceDkanData(resource, nid, title):
 
 
 def createResource(resource: Resource, nid, title):
-    data = getResourceDkanData(resource, nid, title)
+    data = getResourceDkanData(resource, nid, title, None)
     createResourceFromData(data)
 
 
@@ -356,41 +365,47 @@ def createResourceFromData(data):
     handleFileUpload(data, newResourceNodeId)
 
 
-def updateResource(data, existingResource):
+def updateResource(data, oldData):
     connect()
-    nodeId = existingResource['nid']
+    nodeId = oldData['nid']
     logging.info(_(" '-> [aktualisiere] %s %s"), nodeId, data['title'])
-    if 'upload_file' in data:
-        # There seems to be a bug in DKAN:
-        # I did not manage to update a resource that has an uploaded file.
-        # Always receives weird http 500 errors from server:
-        # "500 Internal Server Error : An error occurred (HY000): SQLSTATE[HY000]:
-        #     General error: 1366 Incorrect integer value: '' for column 'field_upload_grid' at row 1"
-        # So we delete and recreate if necessary:
-        removeHtml = re.compile(r'(<!--.*?-->|<[^>]*>)')
-        body1 = body2 = ""
-        if "body" in data:
-            body1 = removeHtml.sub('', data['body']['und'][0]['value'])
-        if ("body" in existingResource) and ("und" in existingResource["body"]):
-            body2 = removeHtml.sub('', existingResource['body']['und'][0]['value'])
+    if 'x_upload_file' in data:
+        if None:
+            # There seems to be a bug in DKAN:
+            # I did not manage to update a resource that has an uploaded file.
+            # Always receives weird http 500 errors from server:
+            # "500 Internal Server Error : An error occurred (HY000): SQLSTATE[HY000]:
+            #     General error: 1366 Incorrect integer value: '' for column 'field_upload_grid' at row 1"
+            # So we delete and recreate if necessary:
+            removeHtml = re.compile(r'(<!--.*?-->|<[^>]*>)')
+            body1 = body2 = ""
+            if "body" in data:
+                body1 = removeHtml.sub('', data['body']['und'][0]['value'])
+            if ("body" in oldData) and ("und" in oldData["body"]):
+                body2 = removeHtml.sub('', oldData['body']['und'][0]['value'])
 
-        if (data['title'] != existingResource['title']) or (body1 != body2):
-            logging.debug("[DELETE NODE AND RECREATE] (required if changes in name or description of resources with file uploads)")
-            logging.debug('newtitle: %s', data['title'])
-            logging.debug('oldTitle: %s', existingResource['title'])
-            logging.debug("newBody: %s", body1)
-            logging.debug("oldBody: %s", body2)
+            if (data['title'] != oldData['title']) or (body1 != body2):
+                logging.debug("[DELETE NODE AND RECREATE] (required if changes in name or description of resources with file uploads)")
+                logging.debug('newtitle: %s', data['title'])
+                logging.debug('oldTitle: %s', oldData['title'])
+                logging.debug("newBody: %s", body1)
+                logging.debug("oldBody: %s", body2)
 
-            response = api.node('delete', node_id=nodeId)
-            if response.status_code != 200:
-                logging.error(_("Fehler: %s - %s"), response, response.content)
-                raise Exception('Error during resource update:', response, response.text)
+                response = api.node('delete', node_id=nodeId)
+                if response.status_code != 200:
+                    logging.error(_("Fehler: %s - %s"), response, response.content)
+                    raise Exception('Error during resource update:', response, response.text)
 
-            createResourceFromData(data)
-        else:
-            handleFileUpload(data, nodeId)
+                createResourceFromData(data)
+            else:
+                handleFileUpload(data, nodeId)
+
+        handleFileUpload(data, nodeId)
+
     else:
         r = api.node('update', node_id=nodeId, data=data)
+        logging.info("update: http response code %s", r.status_code)
+        logging.info("update: result %s", r)
         if r.status_code != 200:
             logging.error(_("ERROR %s %s"), r, r.content)
             raise Exception('Error during resource update:', r, r.text)
@@ -399,46 +414,100 @@ def updateResource(data, existingResource):
 def handleFileUpload(data, nodeId):
     connect()
 
-    if "upload_file" in data:
-        filename = data["upload_file"]
+    if "x_upload_file" in data:
+        filename = data["x_upload_file"]
         logging.info(_("  Datei-Upload zu Resource %s: %s"), nodeId, filename)
         logging.debug(_("  Node Daten: %s"), data)
         aResponse = api.attach_file_to_node(filename, nodeId, 'field_upload')
         logging.debug(_("  Ergebnis: %s - %s"), aResponse.status_code, aResponse.text)
 
 
-def updateResources(newResources:List[Resource], existingResources, dataset, forceUpdate):
+def updateResources(newResources:List[Resource], existingResourceIds, dataset):
     connect()
-    logging.info(_("Prüfe bestehende Resourcen:"))
 
-    for existingResource in existingResources:
-        logging.info(_("  Resource-ID %s"), existingResource['target_id'])
-        # ^ existingResource is crap, because it's only a list of target_ids!
-        # Don't use existingResource, use resourceData instead!
+    logging.info(_("Prüfe bestehende Resourcen: (forceUpdate=%s"), config.force_resource_update)
 
-        resourceData = getDatasetDetails(existingResource['target_id'])
+    for existingResourceId in existingResourceIds:
+        logging.info(_("  Resource-ID %s"), existingResourceId['target_id'])
+
+        oldData = getDatasetDetails(existingResourceId['target_id'])
 
         logging.debug("%s", [x.getUniqueId() for x in newResources])
 
         # check if the existing resource url also is in the new resource urls
-        el = [x for x in newResources if x.equals_existing_resource(resourceData)]
+        el = [x for x in newResources if x.equals_existing_resource(oldData)]
         if el:
             # Found url => That means this is an update
 
             # remove element from the resources that will be created
             newResource = el[0]
             newResources.remove(newResource)
-            # Only update if resource title has changed
-            newData = getResourceDkanData(newResource, dataset['nid'], dataset['title'])
-            if (newData['title'] != resourceData['title']) or forceUpdate:
-                updateResource(newData, resourceData)
+
+            # Only update if something has changed
+            newData = getResourceDkanData(newResource, dataset['nid'], dataset['title'], oldData)
+
+            logging.info("new resource object %s", newResource)
+            logging.info("newData %s", newData)
+            logging.info("oldData %s", oldData)
+
+            hasChanged = config.force_resource_update
+            hasChanged = hasChanged or (newData['title'] != oldData['title'])
+
+            (oldResourceUrl, oldResourceType) = Resource.extractUrlFromResourceData(oldData)
+            (newResourceUrl, newResourceType) = Resource.extractUrlFromResourceData(newData)
+            logging.debug("oldResourceUrl %s %s", oldResourceType, oldResourceUrl)
+            logging.debug("newResourceUrl %s %s", newResourceType, newResourceUrl)
+            hasChanged = hasChanged or (oldResourceType != newResourceType)
+            hasChanged = hasChanged or (oldResourceUrl != newResourceUrl)
+
+            oldBody1 = dkanhelpers.JsonHelper.get_nested_json_value(oldData, ['body', 'und', 0, 'safe_value'])
+            oldBody2 = dkanhelpers.JsonHelper.get_nested_json_value(oldData, ['body', 'und', 0, 'value'])
+            newBody = dkanhelpers.JsonHelper.get_nested_json_value(newData, ['body', 'und', 0, 'value'])
+            logging.info("oldBody1 %s", oldBody1)
+            logging.info("newBody %s", newBody)
+            bodyIsTheSame = (oldBody1 == newBody) or (oldBody2 == newBody)
+            logging.info("bodyIsTheSame %s", bodyIsTheSame)
+            hasChanged = hasChanged or not bodyIsTheSame
+
+            logging.info("hasChanged %s", hasChanged)
+
+            oldLicatt = dkanhelpers.JsonHelper.get_nested_json_value(oldData, ['field_dcatapde_licatt', 'und', 0, 'value'])
+            newLicatt = dkanhelpers.JsonHelper.get_nested_json_value(newData, ['field_dcatapde_licatt', 'und', 0, 'value'])
+            oldLicatt = oldLicatt.replace("\r\n", "\n").replace("_x000D_", "").strip() if oldLicatt else ""
+            newLicatt = newLicatt.replace("\r\n", "\n").replace("_x000D_", "").strip() if newLicatt else ""
+            logging.info("oldLicatt %s", oldLicatt)
+            logging.info("newLicatt %s", newLicatt)
+            hasChanged = hasChanged or (oldLicatt != newLicatt)
+            logging.info("hasChanged %s", hasChanged)
+
+            compareFields = ["field_dcatapde_avail", "field_dcatapde_status", 'field_dcatapde_license', 'field_dcatapde_languagesingle', 'field_dcatapde_rights', 'field_conforms_to']
+            for field in compareFields:
+                logging.info("field %s", field)
+                oldVal = ''
+                newVal = ''
+                if field in oldData:
+                    oldVal = "{}".format(oldData[field]) if oldData[field] else ""
+                if field in newData:
+                    newVal = "{}".format(newData[field]) if newData[field] else ""
+                logging.info(" - oldVal %s", oldVal)
+                logging.info(" - newVal %s", newVal)
+                hasChanged = hasChanged or (oldVal != newVal)
+                logging.info(" -> hasChanged %s", hasChanged)
+
+            if hasChanged:
+                logging.warn("hat sich geändert %s", hasChanged)
+                # updateResource(newData, oldData)
             else:
                 logging.info(_("  '-> [nicht geändert] %s"), newResource)
+
         else:
             # This seems to be an old url that we dont want anymore => delete it
-            logging.info(_("  '-> [löschen] %s"), existingResource)
-            op = api.node('delete', node_id=existingResource['target_id'])
+            logging.info(_("  '-> [löschen] %s"), oldData)
+            # op = api.node('delete', node_id=oldData['target_id'])
             logging.debug(_("Ergebnis: Status=%s, Text=%s"), op.status_code, op.text)
+
+    raise SystemExit
+
 
     # Create new resources
     for resource in newResources:
