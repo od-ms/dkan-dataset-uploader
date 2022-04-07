@@ -831,7 +831,7 @@ nodeSchema = {
         "field_dcatapde_source": {"$ref": "#/definitions/dkan_structure_url_title_attributes_optional"},
         "field_dcatapde_spatialgeonames": {"$ref": "#/definitions/dkan_structure_url_title_attributes_optional"},
         "field_dcatapde_spatialplace": {"$ref": "#/definitions/dkan_structure_tids"},
-        "field_dcatapde_temporal": {"$ref": "#/definitions/dkan_structure_single_value_or_null"},
+        "field_dcatapde_temporal": {"$ref": "#/definitions/dkan_structure_multi_value_or_null"},
         "field_dcatapde_theme": {"$ref": "#/definitions/dkan_structure_tids"}
 
     },
@@ -891,6 +891,28 @@ nodeSchema = {
                                 "type": "object",
                                 "properties": {
                                     "value": {"type": "string"}
+                                },
+                                "required": ["value"]
+                            }
+                        }
+                    }
+                },
+                {   "type": "array",
+                    "maxItems": 0
+                }
+            ]
+        },
+        "dkan_structure_multi_value_or_null": {
+            "anyOf": [
+                {   "type": "object",
+                    "properties": {
+                        "und": {
+                            "type": "array",
+                            "minItems": 1,
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "value": {"type": ["null", "string"]}
                                 },
                                 "required": ["value"]
                             }
