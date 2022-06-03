@@ -286,7 +286,7 @@ class MainGui(Frame):
 
         currentRow +=1
         self.detailed_resources = IntVar(value=(1 if config.detailed_resources else 0))
-        Checkbutton(master, text = _("Detaillierte Ressourcendaten (langsamer)"),variable = self.detailed_resources).grid(row=currentRow, column=1, columnspan=2,  sticky=W)
+        Checkbutton(master, text = _("Detaillierte Ressourcendaten (inkl. dcat-ap.de)"),variable = self.detailed_resources).grid(row=currentRow, column=1, columnspan=2,  sticky=W)
 
         currentRow +=1
         self.resources_download = IntVar(value=(1 if config.resources_download else 0))
