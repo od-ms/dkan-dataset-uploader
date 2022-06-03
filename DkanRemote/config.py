@@ -10,7 +10,7 @@ download_dir = ""
 # features
 skip_resources = False
 check_resources = False
-detailed_resources = False
+detailed_resources = True
 resources_download = False
 
 # endpoint is used to fetch single packages by id
