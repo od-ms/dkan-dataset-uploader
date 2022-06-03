@@ -1,3 +1,4 @@
+from ftplib import all_errors
 import re
 import os.path
 import logging
@@ -64,7 +65,6 @@ class Resource:
             uniqueId = Resource.NAME
         return uniqueId
 
-
     @staticmethod
     def extractUrlFromResourceData(resourceData):
         uniqueId = ''
@@ -75,7 +75,7 @@ class Resource:
         elif ('und' in resourceData['field_link_remote_file']) and ('uri' in resourceData['field_link_remote_file']['und'][0]) and (resourceData['field_link_remote_file']['und'][0]['uri']):
             uniqueId = resourceData['field_link_remote_file']['und'][0]['uri']
             urlType = ResourceType.TYPE_REMOTE_FILE
-        elif ('und' in resourceData['field_link_remote_file']) and ('filefield_dkan_remotefile' in resourceData['field_link_remote_file']['und'][0]) and (resourceData['field_link_remote_file']['und'][0]['filefield_dkan_remotefile']):
+        elif ('und' in resourceData['field_link_remote_file']) and ('filefield_dkan_remotefile' in resourceData['field_link_remote_file']['und'][0]) and (resourceData['field_link_remote_file']['und'][0]['filefield_dkan_remotefile']) and ('url' in resourceData['field_link_remote_file']['und'][0]['filefield_dkan_remotefile']) and resourceData['field_link_remote_file']['und'][0]['filefield_dkan_remotefile']['url']:
             uniqueId = resourceData['field_link_remote_file']['und'][0]['filefield_dkan_remotefile']['url']
             urlType = ResourceType.TYPE_REMOTE_FILE
         elif 'x_upload_file' in resourceData:
