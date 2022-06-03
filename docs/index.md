@@ -160,6 +160,10 @@ Außerdem wird bei jedem Programmstart im Unterverzeichnis `logs/` (unterhalb de
 Die folgende Liste kann Ihnen helfen, die Fehlermeldungen des Programms zu interpretieren:
 
 ## Liste der Fehlermeldungen
+* ```Fehler beim Datensatz-Update <Response [500]>```: *"Invalid option for field field_license"*
+  * Möglichkeit 1: Sie haben den Wert für das Feld "Lizenz" falsch geschrieben.
+  * Möglichkeit 2: Wenden Sie sich bitte an den Dienstleister der Ihr DKAN bereitstellt. Sie müssen ihm eine Liste der von Ihnen verwendeten Lizenzen geben, damit er diese einpflegen kann.
+  (Hintergrundinfo: Beim Schreiben des Lizenznamens für einen Datensatz wird in der DKAN-Instanz anscheinend anhand einer Liste geprüft, ob der Name übereinstimmt. Leider wurde es von ihrem/unserem Dienstleister so konfiguriert, dass das DKAN die gleichen Lizenznamen, die es beim Datenabruf übermittelt, beim Schreiben der Daten nicht mehr versteht. Statt dessen muss dafür eine weitere Liste erweitert werden.)
 
 * ```Fehler 5001```: *Die DKAN-API hat nicht im JSON-Format geantwortet.*<br />
   Häufig hat das einen der folgenden Gründe:

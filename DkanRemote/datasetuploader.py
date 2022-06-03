@@ -130,13 +130,10 @@ class DatasetUploader:
             existingResources = raw_dataset['field_resources']['und']
             if existingResources:
 
-                importOptions = {} # TODO .. das "force" feature wieder einbauen?
-
                 dkanhandler.updateResources(
                     resources,
                     existingResources,
-                    raw_dataset,
-                    ('force' in importOptions)
+                    raw_dataset
                 )
         else:
             # Create all resources
