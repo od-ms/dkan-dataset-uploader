@@ -404,10 +404,9 @@ def updateResource(data, oldData):
 
     else:
         r = api.node('update', node_id=nodeId, data=data)
-        logging.info("update: http response code %s", r.status_code)
-        logging.info("update: result %s", r)
+        logging.debug("  update: result %s", r)
         if r.status_code != 200:
-            logging.error(_("ERROR %s %s"), r, r.content)
+            logging.error(_("FEHLER %s %s"), r, r.content)
             raise Exception('Error during resource update:', r, r.text)
 
 
@@ -425,10 +424,10 @@ def handleFileUpload(data, nodeId):
 def updateResources(newResources:List[Resource], existingResourceIds, dataset):
     connect()
 
-    logging.info(_("Prüfe bestehende Resourcen: (forceUpdate=%s"), config.force_resource_update)
+    logging.info(_("Prüfe bestehende Resourcen: (forceUpdate=%s)"), config.force_resource_update)
 
     for existingResourceId in existingResourceIds:
-        logging.info(_("  Resource-ID %s"), existingResourceId['target_id'])
+        logging.info(_(" Checke Resource-ID %s:"), existingResourceId['target_id'])
 
         oldData = getDatasetDetails(existingResourceId['target_id'])
 
@@ -446,68 +445,57 @@ def updateResources(newResources:List[Resource], existingResourceIds, dataset):
             # Only update if something has changed
             newData = getResourceDkanData(newResource, dataset['nid'], dataset['title'], oldData)
 
-            logging.info("new resource object %s", newResource)
-            logging.info("newData %s", newData)
-            logging.info("oldData %s", oldData)
+            #logging.debug("new resource object %s", newResource)
+            #logging.debug("- new Data %s", newData)
+            #logging.debug("- old Data %s", oldData)
 
             hasChanged = config.force_resource_update
             hasChanged = hasChanged or (newData['title'] != oldData['title'])
 
             (oldResourceUrl, oldResourceType) = Resource.extractUrlFromResourceData(oldData)
             (newResourceUrl, newResourceType) = Resource.extractUrlFromResourceData(newData)
-            logging.debug("oldResourceUrl %s %s", oldResourceType, oldResourceUrl)
-            logging.debug("newResourceUrl %s %s", newResourceType, newResourceUrl)
+            #logging.debug("oldResourceUrl %s %s", oldResourceType, oldResourceUrl)
+            #logging.debug("newResourceUrl %s %s", newResourceType, newResourceUrl)
             hasChanged = hasChanged or (oldResourceType != newResourceType)
             hasChanged = hasChanged or (oldResourceUrl != newResourceUrl)
 
             oldBody1 = dkanhelpers.JsonHelper.get_nested_json_value(oldData, ['body', 'und', 0, 'safe_value'])
             oldBody2 = dkanhelpers.JsonHelper.get_nested_json_value(oldData, ['body', 'und', 0, 'value'])
             newBody = dkanhelpers.JsonHelper.get_nested_json_value(newData, ['body', 'und', 0, 'value'])
-            logging.info("oldBody1 %s", oldBody1)
-            logging.info("newBody %s", newBody)
             bodyIsTheSame = (oldBody1 == newBody) or (oldBody2 == newBody)
-            logging.info("bodyIsTheSame %s", bodyIsTheSame)
             hasChanged = hasChanged or not bodyIsTheSame
 
-            logging.info("hasChanged %s", hasChanged)
-
-            oldLicatt = dkanhelpers.JsonHelper.get_nested_json_value(oldData, ['field_dcatapde_licatt', 'und', 0, 'value'])
-            newLicatt = dkanhelpers.JsonHelper.get_nested_json_value(newData, ['field_dcatapde_licatt', 'und', 0, 'value'])
-            oldLicatt = oldLicatt.replace("\r\n", "\n").replace("_x000D_", "").strip() if oldLicatt else ""
-            newLicatt = newLicatt.replace("\r\n", "\n").replace("_x000D_", "").strip() if newLicatt else ""
-            logging.info("oldLicatt %s", oldLicatt)
-            logging.info("newLicatt %s", newLicatt)
-            hasChanged = hasChanged or (oldLicatt != newLicatt)
-            logging.info("hasChanged %s", hasChanged)
-
-            compareFields = ["field_dcatapde_avail", "field_dcatapde_status", 'field_dcatapde_license', 'field_dcatapde_languagesingle', 'field_dcatapde_rights', 'field_conforms_to']
-            for field in compareFields:
-                logging.info("field %s", field)
+            compareFields = [['field_dcatapde_licatt', 'value'], ["field_dcatapde_avail", "tid"], ["field_dcatapde_status", "tid"], ['field_dcatapde_license', "tid"],
+                ['field_dcatapde_languagesingle', "tid"], ['field_dcatapde_rights', "url"], ['field_conforms_to', "url"]]
+            for fieldSetting in compareFields:
+                (field, compareValue) = fieldSetting
                 oldVal = ''
                 newVal = ''
                 if field in oldData:
-                    oldVal = "{}".format(oldData[field]) if oldData[field] else ""
+                    # oldVal = "{}".format(oldData[field]) if oldData[field] else ""
+                    oldVal = dkanhelpers.JsonHelper.get_nested_json_value(oldData, [field, 'und', 0, compareValue])
+                    oldVal = oldVal.replace("\r\n", "\n").replace("_x000D_", "").strip() if oldVal else ""
                 if field in newData:
-                    newVal = "{}".format(newData[field]) if newData[field] else ""
-                logging.info(" - oldVal %s", oldVal)
-                logging.info(" - newVal %s", newVal)
-                hasChanged = hasChanged or (oldVal != newVal)
-                logging.info(" -> hasChanged %s", hasChanged)
+                    # newVal = "{}".format(newData[field]) if newData[field] else ""
+                    newVal = dkanhelpers.JsonHelper.get_nested_json_value(newData, [field, 'und', 0, compareValue])
+                    newVal = newVal.replace("\r\n", "\n").replace("_x000D_", "").strip() if newVal else ""
+                #logging.debug(" - oldVal %s", oldVal)
+                #logging.debug(" - newVal %s", newVal)
+                fieldHasChanged = (oldVal != newVal)
+                hasChanged = hasChanged or fieldHasChanged
+                logging.debug(" -> FieldhasChanged '%s'? %s (all = %s)", field, fieldHasChanged, hasChanged)
 
             if hasChanged:
-                logging.warn("hat sich geändert %s", hasChanged)
-                # updateResource(newData, oldData)
+                logging.warn(_("  ..hat sich geändert."))
+                updateResource(newData, oldData)
             else:
-                logging.info(_("  '-> [nicht geändert] %s"), newResource)
+                logging.info(_(" '-> [nicht geändert]"))
 
         else:
             # This seems to be an old url that we dont want anymore => delete it
             logging.info(_("  '-> [löschen] %s"), oldData)
-            # op = api.node('delete', node_id=oldData['target_id'])
+            op = api.node('delete', node_id=oldData['target_id'])
             logging.debug(_("Ergebnis: Status=%s, Text=%s"), op.status_code, op.text)
-
-    raise SystemExit
-
 
     # Create new resources
     for resource in newResources:

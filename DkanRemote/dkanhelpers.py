@@ -152,13 +152,14 @@ class HttpHelper:
         except Exception as err:
             logging.debug('Kein Dateiname im Header, Fehler: %s', repr(err))
             filename = HttpHelper.get_resource_filename(url)
-            logging.info("Dateiname aus URL: %s", filename)
+            if filename:
+                logging.info("Dateiname aus URL: %s", filename)
         if filename and (filename.find(".") == -1):
             filename = filename + '.' + r_format
 
         if not filename:
-            logging.warn("Dateiname konnte nicht herausgefunden werden.")
             backup_filename = 'unknown.{}'.format(r_format)
+            logging.warning("Dateiname in URL und Header Leer. Download-Datei wird '%s' genannt.", backup_filename)
 
         targetpath = os.path.normpath(os.path.join(config.download_dir, lfd_nr + '-' + filename + backup_filename))
         logging.debug("Download Ziel: %s", targetpath)
