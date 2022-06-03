@@ -575,7 +575,7 @@ class Dkan2Excel:
                             #   * html tags inside/before url
                             #   * double encoded ampersands
                             if (not resource_url.lower().startswith("http")) or (resource_url.lower().find("amp;") != -1):
-                                logging.warn("Unexpected resource URL. Re-loading via DKAN API.. %s", resource_url)
+                                logging.warn("Unexpected CKAN resource URL. Re-loading via DKAN API.. %s", resource_url)
                                 resource_node_id = DkanApiAccess.get_node_id_for_package_id(resource['id'])
                                 resource_node = dkanhelpers.HttpHelper.read_dkan_node(resource_node_id)
                                 (my_resource_type, fixed_resource_url) = dkanhelpers.JsonHelper.get_resource_url(resource_node)

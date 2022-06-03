@@ -148,12 +148,12 @@ class HttpHelper:
             logging.debug("header %s", cd_header)
             value, params = cgi.parse_header(cd_header)
             filename = params["filename"]
-            logging.info("Dateiname aus Header: %s", filename)
+            logging.debug("Dateiname aus Header: %s", filename)
         except Exception as err:
             logging.debug('Kein Dateiname im Header, Fehler: %s', repr(err))
             filename = HttpHelper.get_resource_filename(url)
             if filename:
-                logging.info("Dateiname aus URL: %s", filename)
+                logging.debug("Dateiname aus URL: %s", filename)
         if filename and (filename.find(".") == -1):
             filename = filename + '.' + r_format
 
@@ -166,7 +166,7 @@ class HttpHelper:
 
         ti = timer()
         urlretrieve(url, targetpath)
-        logging.debug(_('{:.4f}s URL-Ladezeit: "{}"').format(timer() - ti, url))
+        logging.info(_(' * Download in {:.4f}s: {} "{}"').format(timer() - ti, (lfd_nr + '-' + filename + backup_filename), url))
 
         return filename
 
