@@ -120,7 +120,11 @@ class ExcelReader:
                 logging.debug("Vorheriger Datensatz: %s", last_dataset)
                 # All resource columns were collected. A new dataset should be created.
                 if last_dataset:
-                    self.datasetuploader.processDataset(last_dataset, resources)
+                    try:
+                        self.datasetuploader.processDataset(last_dataset, resources)
+                    except Exception as error:
+                        logging.exception(error)
+
                 elif resources:
                     logging.warning(_("%s Resourcen werden ignoriert."), len(resources))
 
