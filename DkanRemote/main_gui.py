@@ -12,6 +12,7 @@ from tkinter import messagebox
 from datetime import datetime
 from . import config
 from . import excelreader
+from . import linkchecker
 from . import excelwriter
 from . import confighandler
 from . import dkanhandler
@@ -197,13 +198,15 @@ class MainGui(Frame):
         self.filename_input.grid(row=currentRow, column=1, columnspan=2, sticky=W+E)
         self.filename_label = Label(master, text=_("Excel-Dateiname:"))
         self.filename_label.grid(row=currentRow, column=0, sticky=E)
+        bb2 = Button(master, text=_("öffnen"), command=self.action_open)
+        bb2.grid(row=currentRow, column=2, sticky=E)
         currentRow += 1
 
         # Excel file action buttons
-        bb = Button(master, text=_("Dateipfade prüfen"), command=self.action_check_excel)
+        bb = Button(master, text=_("Config-Pfade prüfen"), command=self.action_check_excel)
         bb.grid(row=currentRow, column=1, sticky=W+E, pady=(y_spacing, y_spacing))
-        bb2 = Button(master, text=_("Excel-Datei öffnen"), command=self.action_open)
-        bb2.grid(row=currentRow, column=2, sticky=W+E, pady=(y_spacing, y_spacing))
+        bb3 = Button(master, text=_("URLs in Datei prüfen"), command=self.action_check_links)
+        bb3.grid(row=currentRow, column=2, sticky=W+E, pady=(y_spacing, y_spacing))
 
         # Config headline
         currentRow += 1
@@ -477,6 +480,10 @@ class MainGui(Frame):
         self.update_config()
         self.execute_thread(lambda: excelwriter.write(False), 'DKAN auslesen')
 
+
+    def action_check_links(self):
+        self.update_config()
+        self.execute_thread(lambda: linkchecker.check_links(False), 'Alle URLs in Excel-Datei prüfen')
 
     def action_upload(self):
         result = messagebox.askokcancel(
