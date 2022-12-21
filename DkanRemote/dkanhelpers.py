@@ -15,6 +15,44 @@ from . import config
 from . import dkanhandler
 from . import constants
 
+import warnings
+import contextlib
+from urllib3.exceptions import InsecureRequestWarning
+
+old_merge_environment_settings = requests.Session.merge_environment_settings
+
+# Fix problems with broken SSL certificates
+# ref. https://stackoverflow.com/questions/15445981/how-do-i-disable-the-security-certificate-check-in-python-requests
+@contextlib.contextmanager
+def no_ssl_verification():
+    opened_adapters = set()
+
+    def merge_environment_settings(self, url, proxies, stream, verify, cert):
+        # Verification happens only once per connection so we need to close
+        # all the opened adapters once we're done. Otherwise, the effects of
+        # verify=False persist beyond the end of this context manager.
+        opened_adapters.add(self.get_adapter(url))
+
+        settings = old_merge_environment_settings(self, url, proxies, stream, verify, cert)
+        settings['verify'] = False
+
+        return settings
+
+    requests.Session.merge_environment_settings = merge_environment_settings
+
+    try:
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore', InsecureRequestWarning)
+            yield
+    finally:
+        requests.Session.merge_environment_settings = old_merge_environment_settings
+
+        for adapter in opened_adapters:
+            try:
+                adapter.close()
+            except:
+                pass
+
 
 class JsonHelper:
 
@@ -82,7 +120,7 @@ class HttpHelper:
                 logging.debug(_('Nutze Cachedatei "%s" '), temp_file)
             else:
                 ti = timer()
-                r = requests.get(remote_url, headers={'Cache-Control': 'no-cache', "Pragma": "no-cache"})
+                r = requests.get(remote_url, headers={'Cache-Control': 'no-cache', "Pragma": "no-cache"}, verify=False)
                 myfile = r.text
 
                 logging.debug(_('HTTP {} | {:.2f}s für: "{}"').format(r.status_code, timer() - ti, remote_url))
@@ -186,7 +224,9 @@ class HttpHelper:
             return []
 
         tags_url = config.dkan_url + admin_page_path
-        res = pydkan_instance.get(tags_url)
+        res = None
+        with no_ssl_verification():
+            res = pydkan_instance.get(tags_url)
 
         if res.status_code != 200:
             logging.debug(_("Server-Antwort: %s"), res.text)
