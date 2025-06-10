@@ -4,6 +4,6 @@ jsondiff==2.2.1
 jsonschema==4.23.0
 Markdown==3.7
 git+https://github.com/grantdobbe/pydkan.git@master#egg=pydkan
-Requests==2.32.3
+Requests==2.32.4
 xlrd==2.0.1
 XlsxWriter==3.2.2
