@@ -2,7 +2,7 @@ geomet==1.1.0
 httplib2==0.22.0
 jsondiff==2.2.1
 jsonschema==4.23.0
-Markdown==3.7
+Markdown==3.8.1
 git+https://github.com/grantdobbe/pydkan.git@master#egg=pydkan
 Requests==2.32.3
 xlrd==2.0.1
