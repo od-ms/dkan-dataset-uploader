@@ -3,11 +3,11 @@ import json
 import logging
 import os.path
 import os
-import cgi
 import ssl
 from urllib.parse import urlparse
 from urllib.request import urlopen
 from urllib.request import urlretrieve
+from email.message import Message
 from random import random
 from timeit import default_timer as timer
 import requests
@@ -135,8 +135,16 @@ class HttpHelper:
                 data = json.load(json_data)
 
         except json.decoder.JSONDecodeError as err:
-            logging.debug(_("Fehlermeldung (beim Parsen der DKAN-API JSON-Daten): %s"), err)
+            logging.debug(_("JSON-Fehler (beim Parsen der DKAN-API JSON-Daten): %s"), err)
             logging.error(_("Fehler 5001 beim Lesen der Eingabedaten."))
+            os.remove(temp_file)
+        except requests.exceptions.ConnectTimeout as err:
+            logging.debug(_("Connection Timeout (beim Lesen der DKAN-API JSON-Daten): %s"), err)
+            logging.error(_("Fehler 5006 bei DKAN-API-Verbindung."))
+            os.remove(temp_file)     
+        except Exception as err:
+            logging.debug(_("Fehlermeldung (beim Lesen der DKAN-API JSON-Daten): %s"), err)
+            logging.error(_("Fehler 5008 beim Lesen der Eingabedaten."))
             os.remove(temp_file)
 
         return data
@@ -184,8 +192,9 @@ class HttpHelper:
             logging.debug("remotefile info %s", remotefile.info())
             cd_header = remotefile.info()['Content-Disposition']
             logging.debug("header %s", cd_header)
-            value, params = cgi.parse_header(cd_header)
-            filename = params["filename"]
+            m = Message()
+            m['content-type'] = cd_header
+            filename = m.get_param('filename')
             logging.debug("Dateiname aus Header: %s", filename)
         except Exception as err:
             logging.debug('Kein Dateiname im Header, Fehler: %s', repr(err))
