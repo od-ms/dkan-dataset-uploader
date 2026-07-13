@@ -180,6 +180,12 @@ Die folgende Liste kann Ihnen helfen, die Fehlermeldungen des Programms zu inter
 * ```Fehler 5003```: *Die DKAN Instanz ist nicht kompatibel zu DKAN-Uploader* <br />
   Bei der Überprüfung der DKAN-API-Datenformate wurde festgestellt, dass die von Ihnen genutzte DKAN-Instanz nicht kompatibel ist. *Lösung:* Kontaktieren Sie eine Person Ihres Vertrauens mit Python-Softwareentwicklungsexpertise, und bitten Sie diese Person, den Open-Source-Quellcode dieser Anwendung anzupassen.
 
+* ```Fehler 5006```: *Verbindungsproblem (Timeout)* <br />
+  Verbindungs-Timeout-Fehler, z.B. wenn die Verbindung von einem Proxy geblockt wird. Infos zur Behebung: Proxy Settings werden automatisch von der Startkonsole übernommen, z.B. beim Start über eine Powershell muss als Befehl eingegeben werden: `$env:HTTPS_PROXY="your/proxy:settings" `
+
+* ```Fehler 5008```: *DKAN-Verbindungsproblem* <br />
+  Sonstiger Fehler bei der HTTP(S)-Verbindung zur DKAN-Istanz.
+
 * ```Fehler 5005```: *Datensatz konnte nicht 1:1 angelegt werden* <br />
   Dieser Fehler kann auftreten beim Anlegen eines Test-Datensatzes im DKAN. Dabei wurde dann festgestellt, dass beim Auslesen des gerade erst angelegten Test-Datensatzes einige Feldwerte nicht mit den geschriebenen Werten übereinstimmen. Das muss nicht unbedingt ein Problem sein. Wenn Sie diese Fehlermeldung erhalten, dann sollte im selben Fenster für die Logmeldungen oberhalb der Fehlermeldung eine Zusammenfassung angezeigt werden, welche Felder nicht exakt übereinstimmen. Sie können anhand dieser Logmeldungen übereprüfen, ob der Fehler als problematisch zu bewerten ist. Das passiert z.B. wenn die DKAN Konfiguration geändert wurde, und die Lizenz-Namen nicht mehr übereinstimmen.
 
