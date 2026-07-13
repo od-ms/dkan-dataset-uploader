@@ -3,7 +3,7 @@ import re
 from typing import List
 import json
 import logging
-from dkan.client import DatasetAPI, LoginError
+from vendor.dkan.client import DatasetAPI, LoginError
 from .constants import Dataset, Resource, ResourceType, AbortProgramError
 from . import dkanhelpers
 from . import config
